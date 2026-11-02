@@ -1,0 +1,144 @@
+/* Kiko si kondektur: tata letak, ekspresi lewat atribut data-*, pose, dan animasi.
+   Bagian tubuh adalah grup SVG dengan transform-origin tetap dalam koordinat viewBox. */
+.kiko{position:relative;display:flex;flex-direction:column;align-items:center;width:100%;max-width:var(--kk,280px);margin:0 auto;-webkit-user-select:none;user-select:none;--tilt:0deg}
+.kk-stage{position:relative;width:100%;touch-action:none;cursor:grab;-webkit-tap-highlight-color:transparent}
+.kiko.held .kk-stage{cursor:grabbing}
+.kk-drag{transition:transform .65s var(--spring);will-change:transform}
+.kiko.lifted .kk-drag{transition:none}
+.kk-svg{display:block;width:100%;height:auto;overflow:visible;filter:drop-shadow(0 18px 26px rgba(0,0,0,.45))}
+.kk-all{animation:kkFloat 3.6s ease-in-out infinite;transform-origin:120px 160px;transform-box:view-box}
+@keyframes kkFloat{50%{transform:translateY(-6px)}}
+.kiko.held .kk-all{animation:none;transform:scale(.96,.94)}
+.kk-shadow{transform-origin:120px 306px;transform-box:view-box;animation:kkShadow 3.6s ease-in-out infinite}
+@keyframes kkShadow{50%{transform:scaleX(.86);opacity:.18}}
+
+.kk-tuft{transform-box:view-box;animation:kkTuftL 3.6s ease-in-out infinite}
+.kk-tuft.l{transform-origin:66px 138px}
+.kk-tuft.r{transform-origin:174px 138px;animation-name:kkTuftR}
+@keyframes kkTuftL{50%{transform:rotate(5deg)}}
+@keyframes kkTuftR{50%{transform:rotate(-5deg)}}
+.kk-lantern{transform-box:view-box;transform-origin:170px 246px;animation:kkSwing 2.4s ease-in-out infinite}
+@keyframes kkSwing{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+.kk-glow{animation:kkGlow 1.8s ease-in-out infinite alternate;filter:drop-shadow(0 0 5px #ffc861)}
+@keyframes kkGlow{from{opacity:.55}to{opacity:1}}
+.kk-whistle{transform-box:view-box;transform-origin:148px 196px;animation:kkSwing 2.8s ease-in-out infinite}
+.kiko.wiggle .kk-whistle,.kiko.wiggle .kk-cap{animation:kkWiggle .3s ease-in-out 4}
+.kk-cap{transform-box:view-box;transform-origin:120px 80px}
+@keyframes kkWiggle{from{transform:rotate(-5deg)}to{transform:rotate(5deg)}}
+.kk-body{transform-box:view-box;transform-origin:120px 262px;animation:kkBreathe 3.6s ease-in-out infinite}
+@keyframes kkBreathe{50%{transform:scale(1.012,1.025)}}
+.kk-head{transform-box:view-box;transform-origin:120px 176px;transition:transform .45s var(--spring);transform:rotate(var(--tilt))}
+.kk-arm,.kk-leg{transform-box:view-box;transition:transform .45s var(--spring)}
+.kk-arm.l{transform-origin:90px 202px}.kk-arm.r{transform-origin:150px 202px}
+.kk-leg.l{transform-origin:108px 252px}.kk-leg.r{transform-origin:131px 252px}
+.kk-cover{opacity:0;transform:translateY(-12px);transition:opacity .2s,transform .3s var(--spring);transform-box:view-box}
+
+.kiko .e,.kiko .b,.kiko .m,.kiko .x,.kiko .kk-blush{opacity:0;transition:opacity .16s}
+.kiko[data-eyes=open] .e-open,.kiko[data-eyes=side] .e-open,.kiko[data-eyes=sad] .e-open,.kiko[data-eyes=sad] .e-wet{opacity:1}
+.kiko[data-eyes=squeeze] .e-squeeze,.kiko[data-eyes=happy] .e-happy,.kiko[data-eyes=closed] .e-closed,.kiko[data-eyes=annoy] .e-annoy,.kiko[data-eyes=star] .e-star,.kiko[data-eyes=surp] .e-surp,.kiko[data-eyes=sleepy] .e-sleepy,.kiko[data-eyes=heart] .e-heart{opacity:1}
+.kiko[data-eyes=wink] .e-open.L,.kiko[data-eyes=wink] .e-happy.R{opacity:1}
+.kiko[data-brow=norm] .b-norm,.kiko[data-brow=up] .b-up,.kiko[data-brow=sad] .b-sad,.kiko[data-brow=angry] .b-angry{opacity:1}
+.kiko[data-mouth=smile] .m-smile,.kiko[data-mouth=open] .m-open,.kiko[data-mouth=grin] .m-grin,.kiko[data-mouth=o] .m-o,.kiko[data-mouth=frown] .m-frown,.kiko[data-mouth=pout] .m-pout,.kiko[data-mouth=grump] .m-grump,.kiko[data-mouth=wavy] .m-wavy,.kiko[data-mouth=cat] .m-cat,.kiko[data-mouth=flat] .m-flat,.kiko[data-mouth=whistle] .m-whistle{opacity:1}
+.kiko[data-eyes=side] .kk-look{translate:5px -5px}
+.kiko[data-fx~=blush] .kk-blush{opacity:.7}
+.kiko[data-fx~=redblush] .kk-blush{opacity:.95;fill:#d9453c}
+.kiko[data-fx~=sweat] .x-sweat,.kiko[data-fx~=tear] .x-tear,.kiko[data-fx~=vein] .x-vein,.kiko[data-fx~=alert] .x-alert,.kiko[data-fx~=think] .x-think,.kiko[data-fx~=sparkle] .x-sparkle,.kiko[data-fx~=hearts] .x-hearts,.kiko[data-fx~=zzz] .x-zzz,.kiko[data-fx~=quest] .x-quest,.kiko[data-fx~=notes] .x-notes{opacity:1}
+.x-vein{transform-box:fill-box;transform-origin:center;animation:kkVein .5s ease-in-out infinite alternate}
+@keyframes kkVein{to{transform:scale(1.25)}}
+.x-alert{transform-box:fill-box;transform-origin:center bottom;animation:kkAlert .4s ease-in-out infinite alternate}
+@keyframes kkAlert{to{transform:translateY(-4px) scale(1.08)}}
+.x-quest{transform-box:fill-box;transform-origin:center bottom;animation:kkQuest 1.2s ease-in-out infinite alternate}
+@keyframes kkQuest{to{transform:rotate(12deg) translateY(-3px)}}
+.x-tear{animation:kkTear 1.6s ease-in infinite}
+@keyframes kkTear{from{transform:translateY(-3px);opacity:.2}to{transform:translateY(14px);opacity:0}}
+.x-think circle{animation:kkDots 1.2s ease-in-out infinite}.x-think circle:nth-child(2){animation-delay:.2s}.x-think circle:nth-child(3){animation-delay:.4s}
+@keyframes kkDots{50%{opacity:.25}}
+.x-zzz .z{transform-box:fill-box;transform-origin:center;animation:kkZzz 2.4s ease-in-out infinite}
+.x-zzz .z2{animation-delay:.8s}.x-zzz .z3{animation-delay:1.6s}
+@keyframes kkZzz{0%{opacity:0;transform:translate(0,6px) scale(.6)}30%{opacity:1}100%{opacity:0;transform:translate(10px,-22px) scale(1.15)}}
+.x-notes .n{animation:kkNote 1s ease-out infinite}.x-notes .n2{animation-delay:.25s}.x-notes .n3{animation-delay:.5s}
+@keyframes kkNote{0%{opacity:0;transform:translate(0,8px)}35%{opacity:1}100%{opacity:0;transform:translate(14px,-24px)}}
+.kk-sp{transform-box:fill-box;transform-origin:center;animation:kkSpark 1.3s ease-in-out infinite}.kk-sp.s2{animation-delay:.5s}.kk-sp.s3{animation-delay:.9s}
+@keyframes kkSpark{50%{transform:scale(1.5) rotate(25deg);opacity:.5}}
+.kk-h{opacity:0;transform-box:fill-box}
+.kiko[data-fx~=hearts] .kk-h{animation:kkHeart 1.8s ease-out infinite}
+.kk-h.h2{animation-delay:.4s!important}.kk-h.h3{animation-delay:.9s!important}
+@keyframes kkHeart{0%{opacity:0;transform:translateY(8px) scale(.4)}25%{opacity:1}100%{opacity:0;transform:translateY(-44px) scale(1.2)}}
+
+/* Kedipan: seluruh grup mata mengecil dengan titik tumpu di tengah mata sendiri */
+.kiko .e-open{transform-box:fill-box;transform-origin:50% 50%}
+.kiko[data-eyes=open] .e-open,.kiko[data-eyes=side] .e-open{animation:kkBlink 5s infinite}
+@keyframes kkBlink{0%,94%,100%{transform:none}97%{transform:scaleY(.08)}}
+.kiko.blink2 .e-open{animation:kkBlink2 .7s ease-in-out 1!important}
+@keyframes kkBlink2{20%,60%{transform:scaleY(.08)}40%,80%{transform:none}}
+
+.kiko[data-m=annoyed] .kk-head{transform:rotate(-5deg) translateY(2px)}
+.kiko[data-m=sad] .kk-head{transform:translateY(5px) rotate(2deg)}
+.kiko[data-m=thinking] .kk-head{transform:rotate(6deg)}
+.kiko[data-m=confused] .kk-head{transform:rotate(-8deg)}
+.kiko[data-m=happy] .kk-head,.kiko[data-m=giggle] .kk-head{transform:rotate(calc(var(--tilt) - 3deg)) translateY(-2px)}
+.kiko[data-m=annoyed] .kk-arm.l{transform:rotate(18deg)}.kiko[data-m=annoyed] .kk-arm.r{transform:rotate(-18deg)}
+.kiko[data-m=alert] .kk-arm.l{transform:rotate(40deg)}.kiko[data-m=alert] .kk-arm.r{transform:rotate(-40deg)}
+.kiko[data-m=thinking] .kk-arm.r{transform:rotate(-120deg) translate(18px,6px)}
+.kiko[data-pose=cheer] .kk-arm.l{transform:rotate(150deg)}.kiko[data-pose=cheer] .kk-arm.r{transform:rotate(-150deg)}
+.kiko[data-pose=cheer] .kk-all{animation:kkJump .55s ease-in-out 3}
+@keyframes kkJump{50%{transform:translateY(-24px)}}
+.kiko[data-pose=hop] .kk-all{animation:kkJump .6s ease-in-out 1}
+.kiko[data-pose=wave] .kk-arm.r{animation:kkWave .32s ease-in-out 5 alternate}
+@keyframes kkWave{from{transform:rotate(-135deg)}to{transform:rotate(-170deg)}}
+.kiko[data-pose=spin] .kk-all{animation:kkSpin .9s var(--ease) 1}
+@keyframes kkSpin{0%{transform:scaleX(1)}25%{transform:scaleX(.1) translateY(-10px)}50%{transform:scaleX(-1) translateY(-16px)}75%{transform:scaleX(.1) translateY(-10px)}100%{transform:scaleX(1)}}
+.kiko[data-pose=sleepy] .kk-head{transform:rotate(9deg) translateY(5px)}
+.kiko[data-pose=sleepy] .kk-all{animation:kkSleep 4.5s ease-in-out infinite}
+@keyframes kkSleep{50%{transform:translateY(3px) scale(1.01,.985)}}
+.kiko[data-pose=peek] .kk-cover{opacity:1;transform:none}
+.kiko[data-pose=peek] .kk-arm.l{transform:rotate(165deg) translate(0,-6px)}.kiko[data-pose=peek] .kk-arm.r{transform:rotate(-165deg) translate(0,-6px)}
+.kiko[data-pose=peek] .kk-ticket{opacity:0}
+.kiko[data-pose=whistle] .kk-arm.r{transform:rotate(-132deg) translate(14px,-2px)}
+.kiko.blowing .kk-all{animation:kkShake .1s linear infinite}
+@keyframes kkShake{0%{transform:translate(-2px,1px)}50%{transform:translate(2px,-1px)}100%{transform:translate(-2px,1px)}}
+.kiko.tickle .kk-all{animation:kkTickle .18s ease-in-out infinite alternate}
+@keyframes kkTickle{from{transform:rotate(-3deg) translateY(-2px)}to{transform:rotate(3deg) translateY(2px)}}
+.kiko.lifted .kk-all{animation:none}
+.kiko.lifted .kk-leg.l{animation:kkDangle .5s ease-in-out infinite alternate}.kiko.lifted .kk-leg.r{animation:kkDangle .5s ease-in-out infinite alternate-reverse}
+@keyframes kkDangle{from{transform:rotate(14deg)}to{transform:rotate(-14deg)}}
+.kiko.lifted .kk-arm.l,.kiko.lifted .kk-arm.r{animation:kkFlap .25s ease-in-out infinite alternate}.kiko.lifted .kk-arm.r{animation-direction:alternate-reverse}
+@keyframes kkFlap{from{transform:rotate(-26deg)}to{transform:rotate(26deg)}}
+.kk-hand{opacity:0;transform:translateY(-34px);transition:opacity .2s;transform-box:view-box}
+.kiko.patting .kk-hand{opacity:1;animation:kkHandPat .52s ease-in-out 4}
+@keyframes kkHandPat{0%,100%{transform:translateY(0)}50%{transform:translateY(34px)}}
+.kiko.patting .kk-head{animation:kkHeadPat .52s ease-in-out 4}
+@keyframes kkHeadPat{50%{transform:scaleY(.95) translateY(4px)}}
+.kiko.patting .kk-all{animation:none}
+
+.kk-say{position:absolute;bottom:calc(100% - 26px);left:50%;z-index:5;width:max-content;max-width:min(250px,76vw);transform:translate(-50%,8px) scale(.82);transform-origin:50% 100%;opacity:0;padding:10px 15px;border-radius:14px;background:var(--ivory);color:var(--ink);font:500 .94rem/1.35 var(--f-ui);text-align:center;box-shadow:0 14px 30px -10px rgba(0,0,0,.6);transition:transform .4s var(--spring),opacity .22s;pointer-events:none}
+.kk-say::after{content:"";position:absolute;left:50%;bottom:-6px;width:13px;height:13px;margin-left:-6px;background:var(--ivory);transform:rotate(45deg);border-radius:2px}
+.kk-say.show{opacity:1;transform:translate(-50%,0) scale(1)}
+.kk-pat{display:inline-flex;align-items:center;gap:7px;margin-top:6px;padding:7px 14px;border:1px solid var(--line-strong);border-radius:999px;background:transparent;color:var(--ivory-dim);font:500 .88rem var(--f-ui);cursor:pointer;transition:border-color .2s,color .2s}
+.kk-pat:hover{border-color:var(--brass);color:var(--ivory)}
+.kk-pat svg{width:16px;height:16px;fill:var(--oxblood-hi)}
+.kk-pat:hover svg{animation:kkBeat .6s ease-in-out infinite}
+.kk-pat .cnt{color:var(--brass-hi);font-family:var(--f-mono);font-weight:500}
+@keyframes kkBeat{50%{transform:scale(1.3)}}
+
+/* Kereta melintas setelah peluit */
+#kk-pass{position:fixed;left:0;right:0;bottom:6vh;z-index:90;pointer-events:none;height:clamp(90px,17vw,170px);overflow:visible}
+#kk-pass svg{position:absolute;height:100%;width:auto;left:0;animation:kkPass 2.3s cubic-bezier(.5,.05,.6,.95) forwards;filter:drop-shadow(0 14px 22px rgba(0,0,0,.6))}
+#kk-pass .puffs{fill:#f4efe3;opacity:.72;animation:kkPuff .5s ease-in-out infinite alternate}
+@keyframes kkPass{from{transform:translateX(-110%)}to{transform:translateX(120vw)}}
+@keyframes kkPuff{to{transform:translateY(-6px);opacity:.4}}
+body.kk-rumble #main{animation:kkRumble .1s linear infinite}
+@keyframes kkRumble{0%{transform:translate(-1px,1px)}50%{transform:translate(1px,-1px)}100%{transform:translate(-1px,1px)}}
+
+/* Kiko kecil di pojok saat pengguna sedang memesan */
+#dock{position:fixed;right:clamp(8px,2vw,22px);bottom:0;z-index:60;width:var(--dock,118px);pointer-events:none;transition:transform .5s var(--spring),opacity .3s}
+#dock>.kiko{pointer-events:auto;--kk:100%}
+#dock.hidden{transform:translateY(110%);opacity:0}
+body[data-page=auth] #dock,body[data-page=home] #dock{display:none}
+@media (max-width:760px){#dock{--dock:84px}}
+@media (prefers-reduced-motion:reduce){.kk-all,.kk-tuft,.kk-lantern,.kk-whistle,.kk-body,.kk-shadow,.kk-glow{animation:none!important}body.kk-rumble #main{animation:none}}
+
+/* Gelembung ucapan Kiko di pojok tidak boleh terpotong tepi layar */
+#dock .kk-say{left:auto;right:4px;transform:translate(0,8px) scale(.82);transform-origin:90% 100%;max-width:min(260px,70vw)}
+#dock .kk-say.show{transform:translate(0,0) scale(1)}
+#dock .kk-say::after{left:auto;right:34px;margin:0}

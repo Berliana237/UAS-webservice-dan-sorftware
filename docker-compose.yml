@@ -1,0 +1,69 @@
+# Tiap service berjalan di container sendiri, sehingga mTLS benar-benar melintasi jaringan.
+# Pemakaian: node scripts/setup.js, lalu docker compose up --build. Buka http://localhost:8080
+x-service: &service
+  image: rangkai:latest
+  env_file: .env
+  volumes:
+    - ./certs:/app/certs:ro
+    - rangkai-data:/app/data
+  restart: unless-stopped
+
+x-hosts: &hosts
+  BIND_HOST: 0.0.0.0
+  REGISTRY_HOST: registry
+  BROKER_HOST: broker
+  AUTH_HOST: auth
+  CATALOG_HOST: catalog
+  PAYMENT_HOST: payment
+  NOTIFICATION_HOST: notification
+
+services:
+  registry:
+    <<: *service
+    build: .
+    command: ["node", "--disable-warning=ExperimentalWarning", "services/registry/index.js"]
+    environment: { <<: *hosts, INSTANCE_ID: registry }
+  broker:
+    <<: *service
+    command: ["node", "--disable-warning=ExperimentalWarning", "services/broker/index.js"]
+    environment: { <<: *hosts, INSTANCE_ID: broker }
+    depends_on: [registry]
+  auth:
+    <<: *service
+    command: ["node", "--disable-warning=ExperimentalWarning", "services/auth/index.js"]
+    environment: { <<: *hosts, INSTANCE_ID: auth }
+    depends_on: [registry, broker]
+  catalog:
+    <<: *service
+    command: ["node", "--disable-warning=ExperimentalWarning", "services/catalog/index.js"]
+    environment: { <<: *hosts, INSTANCE_ID: catalog }
+    depends_on: [registry, broker, auth]
+  booking-a:
+    <<: *service
+    command: ["java", "-XX:+UseSerialGC", "-Xmx256m", "-jar", "services/booking/target/booking-service.jar"]
+    environment: { <<: *hosts, INSTANCE_ID: booking-a, BOOKING_HOST: booking-a, BOOKING_PORT: "8781" }
+    depends_on: [registry, broker, auth, catalog]
+  booking-b:
+    <<: *service
+    command: ["java", "-XX:+UseSerialGC", "-Xmx256m", "-jar", "services/booking/target/booking-service.jar"]
+    environment: { <<: *hosts, INSTANCE_ID: booking-b, BOOKING_HOST: booking-b, BOOKING_PORT: "8782" }
+    depends_on: [registry, broker, auth, catalog]
+  payment:
+    <<: *service
+    command: ["node", "--disable-warning=ExperimentalWarning", "services/payment/index.js"]
+    environment: { <<: *hosts, INSTANCE_ID: payment }
+    depends_on: [registry, broker, auth]
+  notification:
+    <<: *service
+    command: ["node", "--disable-warning=ExperimentalWarning", "services/notification/index.js"]
+    environment: { <<: *hosts, INSTANCE_ID: notification }
+    depends_on: [registry, broker, auth]
+  gateway:
+    <<: *service
+    command: ["node", "--disable-warning=ExperimentalWarning", "services/gateway/index.js"]
+    environment: { <<: *hosts, INSTANCE_ID: gateway, GATEWAY_HOST: 0.0.0.0, PUBLIC_URL: "http://localhost:8080" }
+    ports: ["8080:8080", "8443:8443"]
+    depends_on: [registry, auth, catalog, booking-a, booking-b, payment, notification]
+
+volumes:
+  rangkai-data:

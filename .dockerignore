@@ -1,0 +1,12 @@
+node_modules
+data
+data-test
+certs
+reports
+.run
+.venv
+.env
+services/booking/target
+postman/*.local.postman_environment.json
+*.pdf
+*.docx

@@ -1,0 +1,112 @@
+"""
+Skema GraphQL Rangkai. Dipakai untuk data yang bentuknya bervariasi per konsumen:
+pencarian jadwal dan peta kursi per segmen. Lihat docs/graphql-examples.md untuk contoh query dan mutation.
+"""
+type Query {
+  "Daftar stasiun yang dilayani."
+  stations: [Station!]!
+  "Cari perjalanan yang melewati stasiun asal lalu tujuan pada tanggal tertentu."
+  searchTrips(from: String!, to: String!, date: String!): [TripOption!]!
+  "Detail satu perjalanan."
+  trip(id: ID!): Trip
+  "Peta kursi untuk ruas from sampai to. Status kursi dihitung per segmen secara real-time."
+  seatMap(tripId: ID!, from: String!, to: String!): SeatMap!
+  "Keberangkatan terdekat dari sekarang, untuk papan keberangkatan."
+  upcomingDepartures(limit: Int = 8): [Departure!]!
+}
+
+type Mutation {
+  "Membuat perjalanan baru. Scope: schedule:write."
+  createTrip(input: CreateTripInput!): Trip!
+  "Mengubah status perjalanan (DELAYED atau CANCELLED). Scope: schedule:write."
+  updateTripStatus(id: ID!, status: TripStatus!, delayMinutes: Int): Trip!
+}
+
+enum TripStatus { SCHEDULED DELAYED CANCELLED }
+enum SeatClass { SUITE EKSEKUTIF PREMIUM }
+enum SeatStatus { AVAILABLE LOCKED BOOKED }
+
+type Station { code: String!, name: String!, city: String! }
+
+type Stop {
+  seq: Int!
+  station: Station!
+  arriveAt: String!
+  departAt: String!
+  km: Int!
+}
+
+type Trip {
+  id: ID!
+  trainName: String!
+  serviceDate: String!
+  departureAt: String!
+  status: TripStatus!
+  delayMinutes: Int!
+  stops: [Stop!]!
+  coaches: [Coach!]!
+  "Daftar ruas antar stasiun berurutan. Satu kursi diklaim per ruas."
+  segments: [Segment!]!
+}
+
+type Segment { index: Int!, from: Station!, to: Station!, km: Int! }
+
+type Coach { code: String!, name: String!, seatClass: SeatClass!, rows: Int!, letters: [String!]! }
+
+type Fare { seatClass: SeatClass!, adult: Int! }
+
+type TripOption {
+  trip: Trip!
+  from: Stop!
+  to: Stop!
+  durationMinutes: Int!
+  km: Int!
+  stopsBetween: Int!
+  fares: [Fare!]!
+  "Jumlah kursi yang masih kosong di seluruh ruas perjalanan ini."
+  availableSeats: Int!
+  totalSeats: Int!
+}
+
+type SeatSegment { index: Int!, status: SeatStatus! }
+
+type Seat {
+  id: ID!
+  coach: String!
+  row: Int!
+  letter: String!
+  seatClass: SeatClass!
+  "Status untuk ruas yang diminta. BOOKED mengalahkan LOCKED."
+  status: SeatStatus!
+  "Status tiap ruas pada seluruh rute, untuk menampilkan kursi yang terpakai sebagian."
+  segments: [SeatSegment!]!
+}
+
+type SeatMapCoach { coach: Coach!, adultFare: Int!, available: Int!, seats: [Seat!]! }
+
+type SeatMap {
+  tripId: ID!
+  fromIndex: Int!
+  toIndex: Int!
+  km: Int!
+  available: Int!
+  total: Int!
+  coaches: [SeatMapCoach!]!
+  segments: [Segment!]!
+}
+
+type Departure {
+  tripId: ID!
+  trainName: String!
+  fromName: String!
+  toName: String!
+  departureAt: String!
+  status: TripStatus!
+  delayMinutes: Int!
+}
+
+input CreateTripInput {
+  lineCode: String!
+  serviceDate: String!
+  departureTime: String!
+}

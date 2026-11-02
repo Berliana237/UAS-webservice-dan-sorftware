@@ -1,0 +1,15 @@
+node_modules/
+.env
+certs/
+data/
+data-test/
+.run/
+reports/
+.venv/
+__pycache__/
+.pytest_cache/
+services/booking/target/
+postman/*.local.postman_environment.json
+
+# materi dosen, jangan diunggah
+*.pdf

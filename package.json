@@ -1,0 +1,26 @@
+{
+  "name": "rangkai",
+  "version": "1.0.0",
+  "description": "Rangkai: reservasi kereta antarkota dengan seat locking per segmen. Proyek lintas mata kuliah Web Service x Software Testing.",
+  "private": true,
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "setup": "node scripts/setup.js",
+    "start": "node scripts/start-all.js",
+    "stop": "node scripts/stop-all.js",
+    "test:node": "node --disable-warning=ExperimentalWarning --test --experimental-test-coverage --test-coverage-include=services/** tests/node/*.test.js",
+    "test:all": "node scripts/run-tests.js all"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "express": "5.3.0",
+    "graphql": "17.0.2",
+    "jose": "6.2.15",
+    "node-forge": "1.4.2",
+    "swagger-ui-dist": "5.34.1"
+  },
+  "devDependencies": {
+    "newman": "6.2.3",
+    "newman-reporter-htmlextra": "1.23.1"
+  }
+}

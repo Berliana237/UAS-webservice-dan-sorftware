@@ -1,0 +1,21 @@
+# Blueprint Render. Semua service berjalan dalam satu container (mTLS tetap aktif di dalam container),
+# karena Render mengakhiri TLS di sisi platform dan paket gratis tidak punya jaringan privat antar service.
+services:
+  - type: web
+    name: rangkai
+    runtime: docker
+    plan: starter
+    healthCheckPath: /healthz
+    envVars:
+      - { key: PUBLIC_URL, sync: false }        # isi: https://nama-anda.onrender.com
+      - { key: CORS_ORIGINS, sync: false }      # isi sama dengan PUBLIC_URL
+      - { key: BOOKING_INSTANCES, value: "1" }  # naikkan ke 2 bila memori cukup
+      - { key: TRUST_PROXY, value: "1" }
+      - { key: GATEWAY_HOST, value: 0.0.0.0 }
+      - { key: SEED_USER_PASSWORD, sync: false }
+      - { key: BLIND_INDEX_KEY, generateValue: true }
+      - { key: WEBHOOK_SECRET, generateValue: true }
+      - { key: SVC_PAYMENT_CLIENT_SECRET, generateValue: true }
+      - { key: SVC_BOOKING_CLIENT_SECRET, generateValue: true }
+      - { key: PARTNER_DEMO_CLIENT_SECRET, generateValue: true }
+      - { key: PII_KEY_BASE64, sync: false }    # 32 byte base64, jalankan: node -e "console.log(crypto.randomBytes(32).toString('base64'))"
