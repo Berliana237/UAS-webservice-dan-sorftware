@@ -2791,7 +2791,7 @@
           ]
         },
         {
-          "name": "Rute tidak dikenal",
+          "name": "Rute API tidak dikenal",
           "request": {
             "method": "GET",
             "header": [],
@@ -2813,7 +2813,83 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "",
+                  "pm.test('Berupa JSON NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Alamat non-API (bukan halaman web)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/jadwal/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "jadwal"
+              ],
+              "query": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "",
+                  "pm.test('JSON NOT_FOUND dengan petunjuk, bukan HTML', () => { pm.expect(pm.response.headers.get('Content-Type')).to.include('json'); pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST ke alamat non-API",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "booking"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "",
+                  "pm.test('JSON NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND'));"
                 ]
               }
             }

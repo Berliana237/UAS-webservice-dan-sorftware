@@ -17,6 +17,15 @@ async function run() {
   const spec = await c.call('GET', '/docs/openapi.yaml');
   r.check('W9-03', 'Spesifikasi OpenAPI tersedia', spec.status === 200 && spec.text.startsWith('openapi'));
 
+  r.section('Alamat yang tidak ada dijawab JSON, bukan halaman web');
+  for (const [m, p] of [['GET', '/jadwal/'], ['POST', '/booking'], ['GET', '/health']]) {
+    const x = await c.call(m, p);
+    r.check(`W9-404${p}`, `${m} ${p} menghasilkan 404 JSON NOT_FOUND`, x.status === 404 && x.json?.error?.code === 'NOT_FOUND' && /json/.test(x.headers.get('content-type')), `status ${x.status}`);
+  }
+  const api404 = await c.call('GET', '/api/tidak-ada');
+  r.check('W9-404api', 'Alamat /api yang tidak ada menghasilkan 404 JSON', api404.status === 404 && api404.json?.error?.code === 'NOT_FOUND');
+  r.check('W9-405', 'Metode salah pada rute yang ada menghasilkan 405 JSON', (await c.call('PUT', '/api/stations')).json?.error?.code === 'METHOD_NOT_ALLOWED');
+
   r.section('Validasi token dan scope di depan');
   r.check('W9-04', 'Tanpa token berhenti di gateway', (await c.call('GET', '/api/bookings')).status === 401);
   const user = await c.login('customer@rangkai.test');

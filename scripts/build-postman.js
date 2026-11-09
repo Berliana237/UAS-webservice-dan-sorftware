@@ -215,7 +215,12 @@ const week9 = folder('Minggu 9 - API Gateway dan Reverse Proxy', 'Routing, valid
     pm.test('X-Frame-Options', () => pm.response.to.have.header('X-Frame-Options'));
     pm.test('X-Content-Type-Options', () => pm.response.to.have.header('X-Content-Type-Options'));` }),
   req('Dokumen API', 'GET', '/docs/openapi.yaml', { tests: expectStatus(200) }),
-  req('Rute tidak dikenal', 'GET', '/api/tidak-ada', { tests: expectStatus(404) }),
+  req('Rute API tidak dikenal', 'GET', '/api/tidak-ada', { tests: `${expectStatus(404)}
+    pm.test('Berupa JSON NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND'));` }),
+  req('Alamat non-API (bukan halaman web)', 'GET', '/jadwal/', { tests: `${expectStatus(404)}
+    pm.test('JSON NOT_FOUND dengan petunjuk, bukan HTML', () => { pm.expect(pm.response.headers.get('Content-Type')).to.include('json'); pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND'); });` }),
+  req('POST ke alamat non-API', 'POST', '/booking', { body: {}, tests: `${expectStatus(404)}
+    pm.test('JSON NOT_FOUND', () => pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND'));` }),
   req('Metode salah', 'PUT', '/api/stations', { tests: expectStatus(405) }),
   req('Skema: field wajib kurang', 'POST', '/api/locks', { auth: 'customerToken', headers: idem, body: { tripId: 'X' }, tests: `${expectStatus(422)}
     pm.test('Kode SCHEMA_VALIDATION_FAILED', () => pm.expect(pm.response.json().error.code).to.eql('SCHEMA_VALIDATION_FAILED'));` }),

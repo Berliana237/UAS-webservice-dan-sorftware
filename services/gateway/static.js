@@ -14,7 +14,7 @@ const TYPES = {
 
 function send(req, res, file, cache) {
   fs.stat(file, (err, stat) => {
-    if (err || !stat.isFile()) { res.statusCode = 404; res.setHeader('Content-Type', 'text/plain; charset=utf-8'); return res.end('Tidak ditemukan'); }
+    if (err || !stat.isFile()) return json(req, res, 404, 'NOT_FOUND', 'Berkas tidak ditemukan.');
     res.setHeader('Content-Type', TYPES[path.extname(file)] || 'application/octet-stream');
     res.setHeader('Content-Length', stat.size);
     res.setHeader('Cache-Control', cache);
@@ -33,13 +33,24 @@ const DOCS_HTML = `<!doctype html><html lang="id"><head><meta charset="utf-8"><t
 <link rel="stylesheet" href="/docs/swagger/swagger-ui.css"><style>body{margin:0}.topbar{display:none}</style></head><body><div id="ui"></div>
 <script src="/docs/swagger/swagger-ui-bundle.js"></script><script>SwaggerUIBundle({url:'/docs/openapi.yaml',dom_id:'#ui',deepLinking:true,persistAuthorization:true})</script></body></html>`;
 
+/** Halaman aplikasi web. Hanya alamat ini yang dijawab index.html, selain itu klien API mendapat JSON yang jelas. */
+const SPA_ROUTES = /^\/(masuk|daftar|cari|perjalanan|konsol|auth\/callback|(kursi|pesanan|bayar|tiket)\/[^/]+)?$/;
+
+function json(req, res, status, code, message, details) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  res.end(JSON.stringify({ error: { code, message, details }, requestId: req.id }));
+}
+
+const HINT = { docs: '/docs', openapi: '/docs/openapi.yaml', health: '/healthz', graphql: 'POST /graphql' };
+
 function serveStatic(req, res, pathname) {
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    res.statusCode = 405; res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    return res.end('Metode tidak didukung');
-  }
   let rel;
-  try { rel = decodeURIComponent(pathname); } catch { res.statusCode = 400; return res.end('Path tidak valid'); }
+  try { rel = decodeURIComponent(pathname); } catch { return json(req, res, 400, 'INVALID_PATH', 'Path tidak valid.'); }
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return json(req, res, 404, 'NOT_FOUND', `Rute ${req.method} ${rel} tidak ditemukan. Endpoint API berawalan /api, /oauth, atau /graphql.`, HINT);
+  }
 
   if (rel === '/docs' || rel === '/docs/') { res.setHeader('Content-Type', 'text/html; charset=utf-8'); return res.end(DOCS_HTML); }
   if (rel === '/docs/openapi.yaml') return send(req, res, path.join(DOCS, 'openapi.yaml'), 'no-cache');
@@ -50,10 +61,10 @@ function serveStatic(req, res, pathname) {
   if (rel.startsWith('/assets/') || rel === '/favicon.svg') {
     const f = safeJoin(WEB, rel.slice(1));
     if (f) return send(req, res, f, 'no-cache');
-    res.statusCode = 404;
-    return res.end('Tidak ditemukan');
+    return json(req, res, 404, 'NOT_FOUND', 'Berkas tidak ditemukan.');
   }
-  return send(req, res, path.join(WEB, 'index.html'), 'no-cache');
+  if (SPA_ROUTES.test(rel)) return send(req, res, path.join(WEB, 'index.html'), 'no-cache');
+  return json(req, res, 404, 'NOT_FOUND', `Rute ${req.method} ${rel} tidak ditemukan. Endpoint API berawalan /api, /oauth, atau /graphql.`, HINT);
 }
 
 module.exports = { serveStatic, safeJoin };
