@@ -46,7 +46,7 @@ public class BookingService {
     }
 
     /* ---------- Membuat pesanan dari lock ---------- */
-    public Map<String, Object> create(String userId, String lockId, List<PassengerInput> passengers) {
+    public Map<String, Object> create(String userId, String contactName, String contactEmail, String lockId, List<PassengerInput> passengers) {
         LockRecord peek = locks.get(lockId, userId);
         Trip trip = catalog.get(peek.tripId());
         return db.run(() -> {
@@ -78,7 +78,7 @@ public class BookingService {
                 }
                 String seatClass = trip.seatClass().get(p.seatId());
                 TripCatalog.Fare rule = trip.fares().get(seatClass);
-                long fare = FareCalculator.fare(rule.base(), rule.perKm(), km, type);
+                long fare = FareCalculator.fare(rule.base(), rule.perKm(), km, type, trip.seniorDiscountPercent());
                 amount += fare;
                 rows.add(new Object[] {"pax_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16), id, p.seatId(), seatClass,
                     crypto.encrypt(p.name().trim()), blank(p.nik()) ? null : crypto.encrypt(p.nik()), blank(p.phone()) ? null : crypto.encrypt(p.phone()), p.age(), type.name(), fare});
@@ -86,10 +86,11 @@ public class BookingService {
             var from = trip.stops().get(lock.range().from());
             var to = trip.stops().get(lock.range().to());
             db.update("""
-                INSERT INTO bookings(id,code,user_id,trip_id,train_name,from_code,from_name,to_code,to_name,from_idx,to_idx,departure_at,status,amount,lock_id,expires_at,created_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                id, pnr(), userId, trip.id(), trip.trainName(), from.code(), from.name(), to.code(), to.name(), lock.range().from(), lock.range().to(),
-                from.departAt(), BookingStatus.PENDING_PAYMENT.name(), amount, lockId, lock.expiresAt(), now);
+                INSERT INTO bookings(id,code,user_id,trip_id,train_id,train_name,from_code,from_name,to_code,to_name,from_idx,to_idx,departure_at,status,amount,lock_id,expires_at,created_at,contact_name_enc,contact_email_enc)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                id, pnr(), userId, trip.id(), trip.trainId(), trip.trainName(), from.code(), from.name(), to.code(), to.name(), lock.range().from(), lock.range().to(),
+                from.departAt(), BookingStatus.PENDING_PAYMENT.name(), amount, lockId, lock.expiresAt(), now,
+                blank(contactName) ? null : crypto.encrypt(contactName), blank(contactEmail) ? null : crypto.encrypt(contactEmail));
             for (Object[] r : rows) {
                 db.update("INSERT INTO passengers(id,booking_id,seat_id,seat_class,name_enc,nik_enc,phone_enc,age,passenger_type,fare) VALUES(?,?,?,?,?,?,?,?,?,?)", r);
             }
@@ -167,11 +168,71 @@ public class BookingService {
     }
 
     /* ---------- Sweeper TTL ---------- */
+    private static final long PAYMENT_REMINDER_MS = 5 * 60_000L;
+    private static final long DEPARTURE_REMINDER_MS = 3 * 3_600_000L;
+
     public int sweep() {
         return db.run(() -> {
             long now = System.currentTimeMillis();
             for (var b : db.list("SELECT * FROM bookings WHERE status='PENDING_PAYMENT' AND expires_at<=? LIMIT 100", now)) expireBooking(b, now);
+            // Pengingat dikirim sekali: batas bayar tinggal 5 menit, dan keberangkatan tinggal 3 jam.
+            for (var b : db.list("SELECT * FROM bookings WHERE status='PENDING_PAYMENT' AND reminded_payment=0 AND expires_at>? AND expires_at<=? LIMIT 100", now, now + PAYMENT_REMINDER_MS)) {
+                db.update("UPDATE bookings SET reminded_payment=1 WHERE id=?", Db.str(b, "id"));
+                events.publish("booking.payment_due_soon", Db.str(b, "id"), Map.of("bookingId", Db.str(b, "id"), "userId", Db.str(b, "user_id"), "code", Db.str(b, "code"), "expiresAt", Db.num(b, "expires_at")));
+            }
+            for (var b : db.list("SELECT * FROM bookings WHERE status='CONFIRMED' AND reminded_departure=0 AND departure_at>? AND departure_at<=? LIMIT 100", now, now + DEPARTURE_REMINDER_MS)) {
+                db.update("UPDATE bookings SET reminded_departure=1 WHERE id=?", Db.str(b, "id"));
+                events.publish("booking.departure_soon", Db.str(b, "id"), Map.of("bookingId", Db.str(b, "id"), "userId", Db.str(b, "user_id"), "code", Db.str(b, "code"),
+                    "trainName", Db.str(b, "train_name"), "fromName", Db.str(b, "from_name"), "departureAt", Db.num(b, "departure_at")));
+            }
             return locks.expireDue().size();
+        });
+    }
+
+    /* ---------- Transfer manual: waktu tahan kursi diperpanjang selama bukti diperiksa ---------- */
+    private static final long MAX_HOLD_MS = 24 * 3_600_000L;
+
+    public Map<String, Object> extendHold(String bookingId, int hours) {
+        if (hours < 1 || hours > 24) throw new DomainException(422, "INVALID_HOLD", "Perpanjangan 1 sampai 24 jam.");
+        return db.run(() -> {
+            long now = System.currentTimeMillis();
+            var b = db.one("SELECT * FROM bookings WHERE id=?", bookingId).orElseThrow(() -> new DomainException(404, "BOOKING_NOT_FOUND", "Pesanan tidak ditemukan."));
+            if (!"PENDING_PAYMENT".equals(Db.str(b, "status")) || Db.num(b, "expires_at") <= now) {
+                throw new DomainException(409, "BOOKING_NOT_PAYABLE", "Pesanan ini sudah tidak menunggu pembayaran.", Map.of("status", Db.str(b, "status")));
+            }
+            String lockId = Db.str(b, "lock_id");
+            long held = Db.num(db.one("SELECT COUNT(*) c FROM seat_claims WHERE owner_id=?", lockId).orElseThrow(), "c");
+            if (held == 0) throw new DomainException(409, "LOCK_EXPIRED", "Kursi sudah tidak ditahan.");
+            // Batas: paling lama 24 jam, dan selesai satu jam sebelum kereta berangkat.
+            long until = Math.min(now + Math.min(hours * 3_600_000L, MAX_HOLD_MS), Db.num(b, "departure_at") - 3_600_000L);
+            if (until <= Db.num(b, "expires_at")) return Map.of("bookingId", bookingId, "expiresAt", Db.num(b, "expires_at"), "extended", false);
+            db.update("UPDATE bookings SET expires_at=?, reminded_payment=0 WHERE id=?", until, bookingId);
+            db.update("UPDATE seat_locks SET expires_at=? WHERE id=?", until, lockId);
+            db.update("UPDATE seat_claims SET expires_at=? WHERE owner_id=?", until, lockId);
+            return Map.of("bookingId", bookingId, "expiresAt", until, "extended", true);
+        });
+    }
+
+    /** Admin membalik keputusan transfer yang sudah diterima: pesanan dibatalkan dan kursi dilepas. */
+    public void onPaymentReversed(String bookingId, String reason) {
+        db.run(() -> {
+            var b = db.one("SELECT * FROM bookings WHERE id=?", bookingId).orElse(null);
+            if (b == null || !"CONFIRMED".equals(Db.str(b, "status"))) return null;
+            doCancel(b, System.currentTimeMillis(), 0, reason == null ? "payment_reversed" : reason);
+            return null;
+        });
+    }
+
+    /** Keterlambatan kereta diteruskan ke tiap pemesan agar notifikasinya personal. */
+    public int onTripDelayed(String tripId, int delayMinutes) {
+        return db.run(() -> {
+            int n = 0;
+            for (var b : db.list("SELECT * FROM bookings WHERE trip_id=? AND status IN ('PENDING_PAYMENT','CONFIRMED')", tripId)) {
+                events.publish("booking.trip_delayed", Db.str(b, "id"), Map.of("bookingId", Db.str(b, "id"), "userId", Db.str(b, "user_id"), "code", Db.str(b, "code"),
+                    "trainName", Db.str(b, "train_name"), "delayMinutes", delayMinutes));
+                n++;
+            }
+            return n;
         });
     }
 
@@ -192,20 +253,20 @@ public class BookingService {
             BookingStatus status = BookingStatus.valueOf(Db.str(b, "status"));
             status.moveTo(BookingStatus.CANCELLED);
             long refund = status == BookingStatus.CONFIRMED ? RefundPolicy.refund(Db.num(b, "amount"), RefundPolicy.percent(Db.num(b, "departure_at"), now)) : 0;
-            doCancel(b, now, refund);
+            doCancel(b, now, refund, "user");
             audit("booking.cancelled", userId, bookingId);
             return view(bookingId, true);
         });
     }
 
-    private void doCancel(Map<String, Object> b, long now, long refund) {
+    private void doCancel(Map<String, Object> b, long now, long refund, String reason) {
         String id = Db.str(b, "id");
         store.releaseClaims(id);
         store.releaseClaims(Db.str(b, "lock_id"));
         if (SeatLockService.ACTIVE.equals(store.findLock(Db.str(b, "lock_id")).map(LockRecord::status).orElse(""))) store.setLockStatus(Db.str(b, "lock_id"), SeatLockService.RELEASED);
         db.update("UPDATE bookings SET status=?, cancelled_at=?, refund_amount=? WHERE id=?", BookingStatus.CANCELLED.name(), now, refund, id);
         events.seatsChanged(Db.str(b, "trip_id"), seatsOf(id), rangeOf(b), "AVAILABLE");
-        events.publish("booking.cancelled", id, Map.of("bookingId", id, "userId", Db.str(b, "user_id"), "refundAmount", refund));
+        events.publish("booking.cancelled", id, Map.of("bookingId", id, "userId", Db.str(b, "user_id"), "refundAmount", refund, "reason", reason, "code", Db.str(b, "code")));
     }
 
     /** Perjalanan dibatalkan operator: semua pesanan batal, dana kembali penuh. */
@@ -214,7 +275,7 @@ public class BookingService {
             long now = System.currentTimeMillis();
             int n = 0;
             for (var b : db.list("SELECT * FROM bookings WHERE trip_id=? AND status IN ('PENDING_PAYMENT','CONFIRMED')", tripId)) {
-                doCancel(b, now, "CONFIRMED".equals(Db.str(b, "status")) ? Db.num(b, "amount") : 0);
+                doCancel(b, now, "CONFIRMED".equals(Db.str(b, "status")) ? Db.num(b, "amount") : 0, "trip_cancelled");
                 n++;
             }
             return n;
@@ -264,9 +325,103 @@ public class BookingService {
         return db.list("SELECT id FROM bookings WHERE user_id=? ORDER BY created_at DESC LIMIT 50", userId).stream().map(r -> view(Db.str(r, "id"), true)).toList();
     }
 
-    public Map<String, Object> internalView(String bookingId) {
+    public Map<String, Object> internalView(String bookingId, boolean detail) {
         var b = db.one("SELECT * FROM bookings WHERE id=?", bookingId).orElseThrow(() -> new DomainException(404, "BOOKING_NOT_FOUND", "Pesanan tidak ditemukan."));
-        return Map.of("id", bookingId, "userId", Db.str(b, "user_id"), "status", Db.str(b, "status"), "amount", Db.num(b, "amount"), "expiresAt", Db.num(b, "expires_at"));
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("id", bookingId);
+        out.put("userId", Db.str(b, "user_id"));
+        out.put("status", Db.str(b, "status"));
+        out.put("amount", Db.num(b, "amount"));
+        out.put("expiresAt", Db.num(b, "expires_at"));
+        if (detail) {
+            out.put("code", Db.str(b, "code"));
+            out.put("trainName", Db.str(b, "train_name"));
+            out.put("from", Db.str(b, "from_name"));
+            out.put("to", Db.str(b, "to_name"));
+            out.put("departureAt", Db.num(b, "departure_at"));
+            out.put("contactName", crypto.decrypt(Db.str(b, "contact_name_enc")));
+            out.put("contactEmail", crypto.decrypt(Db.str(b, "contact_email_enc")));
+            List<Map<String, Object>> pax = new ArrayList<>();
+            for (var p : db.list("SELECT * FROM passengers WHERE booking_id=? ORDER BY seat_id", bookingId)) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("seatId", Db.str(p, "seat_id"));
+                m.put("name", crypto.decrypt(Db.str(p, "name_enc")));
+                m.put("nik", crypto.decrypt(Db.str(p, "nik_enc")));
+                m.put("age", Db.num(p, "age"));
+                m.put("passengerTypeLabel", PassengerType.valueOf(Db.str(p, "passenger_type")).label());
+                pax.add(m);
+            }
+            out.put("passengers", pax);
+        }
+        return out;
+    }
+
+    /* ---------- Admin: riwayat armada ---------- */
+    public List<Map<String, Object>> tripPassengers(String tripId) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (var r : db.list("""
+            SELECT p.*, b.code, b.status, b.from_name, b.to_name, b.contact_email_enc, b.contact_name_enc, b.id AS bid, b.created_at AS booked_at
+            FROM passengers p JOIN bookings b ON b.id=p.booking_id
+            WHERE b.trip_id=? AND b.status IN ('CONFIRMED','CHECKED_IN','CANCELLED','PENDING_PAYMENT') ORDER BY b.from_idx, p.seat_id""", tripId)) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("bookingId", Db.str(r, "bid"));
+            m.put("bookingCode", Db.str(r, "code"));
+            m.put("status", Db.str(r, "status"));
+            m.put("seatId", Db.str(r, "seat_id"));
+            m.put("seatClass", Db.str(r, "seat_class"));
+            m.put("name", crypto.decrypt(Db.str(r, "name_enc")));
+            m.put("nik", crypto.decrypt(Db.str(r, "nik_enc")));
+            m.put("phone", crypto.decrypt(Db.str(r, "phone_enc")));
+            m.put("age", Db.num(r, "age"));
+            m.put("passengerTypeLabel", PassengerType.valueOf(Db.str(r, "passenger_type")).label());
+            m.put("fare", Db.num(r, "fare"));
+            m.put("from", Db.str(r, "from_name"));
+            m.put("to", Db.str(r, "to_name"));
+            m.put("contactName", crypto.decrypt(Db.str(r, "contact_name_enc")));
+            m.put("contactEmail", crypto.decrypt(Db.str(r, "contact_email_enc")));
+            m.put("checkedIn", r.get("checked_in_at") != null);
+            m.put("bookedAt", Db.num(r, "booked_at"));
+            rows.add(m);
+        }
+        return rows;
+    }
+
+    public Map<String, Object> tripStats(List<String> tripIds) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        for (String id : tripIds) {
+            var r = db.one("""
+                SELECT COUNT(p.id) pax, COUNT(DISTINCT b.id) bookings, COALESCE(SUM(p.fare),0) revenue, SUM(CASE WHEN p.checked_in_at IS NOT NULL THEN 1 ELSE 0 END) boarded
+                FROM bookings b JOIN passengers p ON p.booking_id=b.id WHERE b.trip_id=? AND b.status IN ('CONFIRMED','CHECKED_IN')""", id).orElseThrow();
+            out.put(id, Map.of("passengers", Db.num(r, "pax"), "bookings", Db.num(r, "bookings"), "revenue", Db.num(r, "revenue"), "checkedIn", Db.num(r, "boarded")));
+        }
+        return out;
+    }
+
+    public Map<String, Long> claimCounts(List<String> tripIds) {
+        long now = System.currentTimeMillis();
+        Map<String, Long> out = new LinkedHashMap<>();
+        for (String id : tripIds) {
+            out.put(id, Db.num(db.one("SELECT COUNT(*) c FROM seat_claims WHERE trip_id=? AND (expires_at IS NULL OR expires_at>?)", id, now).orElseThrow(), "c"));
+        }
+        return out;
+    }
+
+    public Map<String, Object> dashboard() {
+        long now = System.currentTimeMillis();
+        long dayStart = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Jakarta")).atStartOfDay(java.time.ZoneId.of("Asia/Jakarta")).toInstant().toEpochMilli();
+        Map<String, Object> out = new LinkedHashMap<>(stats());
+        out.put("revenueToday", Db.num(db.one("SELECT COALESCE(SUM(amount),0) s FROM bookings WHERE status IN ('CONFIRMED','CHECKED_IN') AND paid_at>=?", dayStart).orElseThrow(), "s"));
+        out.put("bookingsToday", Db.num(db.one("SELECT COUNT(*) c FROM bookings WHERE created_at>=?", dayStart).orElseThrow(), "c"));
+        out.put("pendingPayment", Db.num(db.one("SELECT COUNT(*) c FROM bookings WHERE status='PENDING_PAYMENT' AND expires_at>?", now).orElseThrow(), "c"));
+        out.put("departingToday", Db.num(db.one("SELECT COUNT(*) c FROM passengers p JOIN bookings b ON b.id=p.booking_id WHERE b.status IN ('CONFIRMED','CHECKED_IN') AND b.departure_at>=? AND b.departure_at<?", dayStart, dayStart + 86_400_000L).orElseThrow(), "c"));
+        List<Map<String, Object>> days = new ArrayList<>();
+        for (int i = 6; i >= 0; i--) {
+            long a = dayStart - i * 86_400_000L;
+            var r = db.one("SELECT COUNT(*) c, COALESCE(SUM(amount),0) s FROM bookings WHERE status IN ('CONFIRMED','CHECKED_IN') AND paid_at>=? AND paid_at<?", a, a + 86_400_000L).orElseThrow();
+            days.add(Map.of("day", a, "bookings", Db.num(r, "c"), "revenue", Db.num(r, "s")));
+        }
+        out.put("last7Days", days);
+        return out;
     }
 
     public Map<String, Object> view(String id, boolean includeTickets) {
@@ -294,6 +449,7 @@ public class BookingService {
             m.put("name", crypto.decrypt(Db.str(p, "name_enc")));
             m.put("age", Db.num(p, "age"));
             m.put("passengerType", Db.str(p, "passenger_type"));
+            m.put("passengerTypeLabel", PassengerType.valueOf(Db.str(p, "passenger_type")).label());
             m.put("fare", Db.num(p, "fare"));
             m.put("nikMasked", NikValidator.mask(crypto.decrypt(Db.str(p, "nik_enc"))));
             m.put("checkedIn", p.get("checked_in_at") != null);

@@ -30,9 +30,9 @@ const ready = (async () => {
   Object.assign(publicJwk, { kid: pair.kid, alg: 'RS256', use: 'sig' });
 })();
 
-async function issueAccessToken({ sub, role, scope, clientId, name }) {
+async function issueAccessToken({ sub, role, scope, clientId, name, email }) {
   await ready;
-  return new SignJWT({ role, scope, client_id: clientId, ...(name ? { name } : {}) })
+  return new SignJWT({ role, scope, client_id: clientId, ...(name ? { name } : {}), ...(email ? { email } : {}) })
     .setProtectedHeader({ alg: 'RS256', kid: pair.kid, typ: 'JWT' })
     .setIssuer(config.iss)
     .setAudience(config.aud)

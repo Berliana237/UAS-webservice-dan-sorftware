@@ -1,6 +1,9 @@
 package id.rangkai.booking.domain;
 
-/** Tarif dihitung di server: base + perKm x km, dibulatkan ke atas per Rp1.000, lalu dikali persentase golongan. */
+/**
+ * Tarif dihitung di server: base + perKm x km, dibulatkan ke atas per Rp1.000.
+ * Hanya lansia yang mendapat potongan, sebesar persentase yang diatur admin (0 sampai 100).
+ */
 public final class FareCalculator {
     private static final long ROUND = 1000;
 
@@ -12,11 +15,11 @@ public final class FareCalculator {
         return roundUp(base + perKm * km);
     }
 
-    public static long fare(long base, long perKm, int km, PassengerType type) {
-        if (type == PassengerType.INFANT) {
-            throw new DomainException(422, "INFANT_NO_SEAT", "Bayi di bawah 3 tahun tidak memerlukan kursi sendiri, jadi tidak perlu didaftarkan pada kursi.");
-        }
-        return roundUp(adultFare(base, perKm, km) * type.farePercent() / 100);
+    public static long fare(long base, long perKm, int km, PassengerType type, int seniorDiscountPercent) {
+        if (seniorDiscountPercent < 0 || seniorDiscountPercent > 100) throw new IllegalArgumentException("Diskon lansia harus 0 sampai 100 persen");
+        long adult = adultFare(base, perKm, km);
+        if (type != PassengerType.SENIOR) return adult;
+        return roundUp(adult * (100 - seniorDiscountPercent) / 100);
     }
 
     private static long roundUp(long amount) {

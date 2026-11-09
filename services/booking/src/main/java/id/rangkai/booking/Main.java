@@ -65,6 +65,10 @@ public final class Main {
 
         discovery.startHeartbeat();
         new Workers(db, mtls, cfg, bookings).start();
+        // Hanya instance pertama yang mengisi riwayat demo, supaya dua instance tidak berebut kunci tulis saat menyala.
+        if ("booking-a".equals(cfg.instanceId())) {
+            new id.rangkai.booking.infra.HistorySeeder(db, new FieldCrypto(cfg.piiKey()), catalog, Integer.parseInt(System.getenv().getOrDefault("HISTORY_DAYS", "60"))).startInBackground();
+        }
         Runtime.getRuntime().addShutdownHook(new Thread(() -> { server.stop(0); db.close(); }));
     }
 }

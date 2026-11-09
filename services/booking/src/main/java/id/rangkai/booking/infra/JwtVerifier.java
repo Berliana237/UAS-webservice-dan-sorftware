@@ -22,7 +22,7 @@ public final class JwtVerifier {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final long JWKS_TTL_MS = 300_000;
 
-    public record Claims(String sub, String role, Set<String> scopes, String clientId) {
+    public record Claims(String sub, String role, Set<String> scopes, String clientId, String name, String email) {
         public boolean has(String scope) { return scopes.contains(scope); }
     }
 
@@ -64,7 +64,7 @@ public final class JwtVerifier {
             if (!audOk) throw new InvalidToken("aud");
             if (c.path("exp").asLong(0) * 1000 <= System.currentTimeMillis()) throw new InvalidToken("exp");
             Set<String> scopes = Arrays.stream(c.path("scope").asText("").split(" ")).filter(x -> !x.isBlank()).collect(Collectors.toSet());
-            return new Claims(c.path("sub").asText(), c.path("role").asText(), scopes, c.path("client_id").asText());
+            return new Claims(c.path("sub").asText(), c.path("role").asText(), scopes, c.path("client_id").asText(), c.path("name").asText(""), c.path("email").asText(""));
         } catch (InvalidToken e) {
             throw e;
         } catch (Exception e) {

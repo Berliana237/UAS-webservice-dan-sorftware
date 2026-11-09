@@ -14,7 +14,7 @@ const mtls = require('../shared/mtls');
 const pii = require('../shared/pii');
 const store = require('./store');
 const { issueAccessToken, jwks } = require('./tokens');
-const { scopesForRole, pkceS256, validatePassword, validateEmail, narrowScope } = require('./rules');
+const { ROLES, scopesForRole, pkceS256, validatePassword, validateEmail, validateNik, validatePhone, validateBirthDate, narrowScope } = require('./rules');
 
 const { log, registry, bus, verifier } = kit('auth');
 const app = createApp('auth', log);
@@ -100,6 +100,7 @@ app.post('/oauth/login', async (req, res) => {
     throw fail();
   }
   store.setFailed(user.id, 0, 0);
+  if (user.active === 0) throw new ApiError(403, 'ACCOUNT_DISABLED', 'Akun ini dinonaktifkan. Hubungi admin Rangkai.');
   const code = pii.randomToken(32);
   const client = store.findClient(ar.client_id);
   store.saveCode({
@@ -138,7 +139,7 @@ function setRefreshCookie(req, res, token, maxAge) {
 const cookieRefresh = (req) => (req.headers.cookie || '').split(';').map((s) => s.trim()).find((s) => s.startsWith('rangkai_rt='))?.slice(11);
 
 async function tokenResponse(req, res, client, user, scope, family) {
-  const access = await issueAccessToken({ sub: user.id, role: user.role, scope, clientId: client.client_id, name: pii.decrypt(user.name_enc) });
+  const access = await issueAccessToken({ sub: user.id, role: user.role, scope, clientId: client.client_id, name: pii.decrypt(user.name_enc), email: pii.decrypt(user.email_enc) });
   const refresh = store.issueRefresh({ userId: user.id, clientId: client.client_id, scope, family });
   const body = { access_token: access, token_type: 'Bearer', expires_in: config.accessTtl, scope, role: user.role };
   if (client.client_id === WEB_CLIENT) setRefreshCookie(req, res, refresh, config.refreshTtl); else body.refresh_token = refresh;
@@ -177,7 +178,9 @@ app.post('/oauth/token', async (req, res) => {
     if (row.expires_at < Date.now()) throw new ApiError(400, 'invalid_grant', 'Refresh token kedaluwarsa.');
     store.revokeRefresh(row.id);
     const user = store.findUserById(row.user_id);
-    return tokenResponse(req, res, client, user, row.scope, row.family_id);
+    if (!user || user.active === 0) { store.revokeFamily(row.family_id); throw new ApiError(400, 'invalid_grant', 'Akun tidak aktif.'); }
+    // Scope dihitung ulang dari peran terkini, sehingga perubahan peran oleh admin langsung berlaku.
+    return tokenResponse(req, res, client, user, narrowScope(row.scope, scopesForRole(user.role)) || scopesForRole(user.role).join(' '), row.family_id);
   }
 
   if (grant === 'client_credentials') {
@@ -212,18 +215,121 @@ const me = (req, res) => {
 app.get('/oauth/userinfo', verifier.requireAuth(), me);
 app.get('/api/auth/me', verifier.requireAuth(), me);
 
-/* ---------- Admin: pengguna ---------- */
-const admin = verifier.requireAuth(['admin']);
-app.get('/api/admin/users', admin, (_req, res) => res.json({ users: store.listUsers().map(store.publicUser) }));
+/** Validasi field profil. Kosong berarti dihapus dari profil. */
+function profileFields(b, { requireName = true } = {}) {
+  const f = {};
+  const name = String(b.name ?? '').trim();
+  if (requireName && (name.length < 2 || name.length > 80)) f.name = 'Nama 2 sampai 80 karakter.';
+  const phone = String(b.phone ?? '').replace(/\s/g, '');
+  const nik = String(b.nik ?? '').trim();
+  const birthDate = String(b.birthDate ?? '').trim();
+  const e1 = validatePhone(phone); if (e1) f.phone = e1;
+  const e2 = validateNik(nik); if (e2) f.nik = e2;
+  const e3 = validateBirthDate(birthDate); if (e3) f.birthDate = e3;
+  return { f, value: { name, phone: phone || null, nik: nik || null, birthDate: birthDate || null } };
+}
+const invalid = (f) => new ApiError(422, 'VALIDATION_FAILED', 'Periksa kembali isian Anda.', { fields: f });
+
+app.patch('/api/auth/me', verifier.requireAuth(), (req, res) => {
+  const user = store.findUserById(req.user.sub);
+  if (!user) throw new ApiError(404, 'USER_NOT_FOUND', 'Pengguna tidak ditemukan.');
+  const { f, value } = profileFields(req.body || {});
+  if (Object.keys(f).length) throw invalid(f);
+  audit('profile.updated', { actor: user.id, target: user.id });
+  res.json({ user: store.publicUser(store.updateProfile(user.id, value)) });
+});
+
+app.post('/api/auth/me/password', verifier.requireAuth(), async (req, res) => {
+  const user = store.findUserById(req.user.sub);
+  if (!user) throw new ApiError(404, 'USER_NOT_FOUND', 'Pengguna tidak ditemukan.');
+  const { currentPassword, newPassword } = req.body || {};
+  if (!(await store.verifyPassword(currentPassword, user.password_hash))) throw invalid({ currentPassword: 'Kata sandi saat ini salah.' });
+  const e = validatePassword(newPassword); if (e) throw invalid({ newPassword: e });
+  if (currentPassword === newPassword) throw invalid({ newPassword: 'Kata sandi baru harus berbeda dari yang lama.' });
+  await store.setPassword(user.id, newPassword);
+  audit('password.changed', { actor: user.id, target: user.id });
+  res.json({ changed: true, notice: 'Kata sandi diganti. Sesi di perangkat lain sudah dikeluarkan.' });
+});
+
+/* ---------- Admin: manajemen pengguna ---------- */
+const admin = verifier.requireAuth(['user:manage']);
+const findOr404 = (id) => {
+  const u = store.findUserById(id);
+  if (!u) throw new ApiError(404, 'USER_NOT_FOUND', 'Pengguna tidak ditemukan.');
+  return u;
+};
+app.get('/api/admin/users', admin, (req, res) => {
+  const q = String(req.query.q || '').trim().toLowerCase();
+  const role = String(req.query.role || '');
+  const users = store.listUsers().map(store.publicUser)
+    .filter((u) => (!role || u.role === role) && (!q || u.name.toLowerCase().includes(q) || u.email.includes(q) || (u.nik || '').includes(q)));
+  res.json({ total: users.length, users });
+});
+app.get('/api/admin/users/:id', admin, (req, res) => res.json({ user: store.publicUser(findOr404(req.params.id)) }));
+app.post('/api/admin/users', admin, async (req, res) => {
+  const b = req.body || {};
+  const { f, value } = profileFields(b);
+  const eE = validateEmail(b.email); if (eE) f.email = eE;
+  const eP = validatePassword(b.password); if (eP) f.password = eP;
+  if (!ROLES.includes(b.role)) f.role = 'Peran harus customer, masinis, atau admin.';
+  if (Object.keys(f).length) throw invalid(f);
+  if (store.findUserByEmail(b.email)) throw new ApiError(409, 'EMAIL_TAKEN', 'Email ini sudah terdaftar.', { fields: { email: 'Email sudah terdaftar.' } });
+  const user = await store.createUser({ ...value, email: b.email, password: b.password, role: b.role });
+  audit('user.created', { actor: req.user.sub, target: user.id, role: b.role });
+  res.status(201).json({ user: store.publicUser(user) });
+});
+app.patch('/api/admin/users/:id', admin, (req, res) => {
+  const user = findOr404(req.params.id);
+  const current = store.publicUser(user);
+  const b = { ...current, ...(req.body || {}) };
+  const { f, value } = profileFields(b);
+  const eE = validateEmail(b.email); if (eE) f.email = eE;
+  if (!ROLES.includes(b.role)) f.role = 'Peran harus customer, masinis, atau admin.';
+  if (Object.keys(f).length) throw invalid(f);
+  if (user.id === req.user.sub && (b.role !== current.role || b.active === false)) throw new ApiError(409, 'CANNOT_CHANGE_SELF', 'Peran dan status akun sendiri tidak bisa diubah, agar admin tidak terkunci dari sistem.');
+  const other = store.findUserByEmail(b.email);
+  if (other && other.id !== user.id) throw new ApiError(409, 'EMAIL_TAKEN', 'Email ini sudah dipakai pengguna lain.', { fields: { email: 'Email sudah dipakai.' } });
+  const updated = store.updateByAdmin(user.id, { ...value, email: b.email, role: b.role, active: b.active !== false });
+  audit('user.updated', { actor: req.user.sub, target: user.id, role: b.role });
+  res.json({ user: store.publicUser(updated) });
+});
 app.patch('/api/admin/users/:id/role', admin, (req, res) => {
   const { role } = req.body || {};
-  if (!['customer', 'operator', 'admin'].includes(role)) throw new ApiError(422, 'VALIDATION_FAILED', 'Peran harus customer, operator, atau admin.');
+  if (!ROLES.includes(role)) throw invalid({ role: 'Peran harus customer, masinis, atau admin.' });
   if (req.params.id === req.user.sub) throw new ApiError(409, 'CANNOT_CHANGE_SELF', 'Tidak bisa mengubah peran akun sendiri.');
-  const user = store.findUserById(req.params.id);
-  if (!user) throw new ApiError(404, 'USER_NOT_FOUND', 'Pengguna tidak ditemukan.');
+  const user = findOr404(req.params.id);
   store.setRole(user.id, role);
   audit('user.role_changed', { actor: req.user.sub, target: user.id, role });
   res.json({ user: store.publicUser(store.findUserById(user.id)) });
+});
+app.post('/api/admin/users/:id/password', admin, async (req, res) => {
+  const user = findOr404(req.params.id);
+  const e = validatePassword(req.body?.password); if (e) throw invalid({ password: e });
+  await store.setPassword(user.id, req.body.password);
+  audit('user.password_reset', { actor: req.user.sub, target: user.id });
+  res.json({ changed: true });
+});
+app.delete('/api/admin/users/:id', admin, (req, res) => {
+  const user = findOr404(req.params.id);
+  if (user.id === req.user.sub) throw new ApiError(409, 'CANNOT_CHANGE_SELF', 'Tidak bisa menghapus akun sendiri.');
+  store.deleteUser(user.id);
+  audit('user.deleted', { actor: req.user.sub, target: user.id });
+  res.json({ deleted: true });
+});
+
+/* ---------- Internal: data pengguna untuk service lain (mTLS) ---------- */
+app.get('/internal/users', mtls.requireCN('catalog', 'payment', 'booking'), (req, res) => {
+  const role = String(req.query.role || '');
+  if (!ROLES.includes(role)) throw new ApiError(422, 'VALIDATION_FAILED', 'Parameter role wajib.');
+  res.json({ users: store.usersByRole(role).map((u) => ({ id: u.id, name: pii.decrypt(u.name_enc) })) });
+});
+app.post('/internal/users/lookup', mtls.requireCN('payment', 'booking'), (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.slice(0, 500) : [];
+  const users = ids.map((id) => store.findUserById(String(id))).filter(Boolean).map((u) => {
+    const p = store.publicUser(u);
+    return { id: p.id, name: p.name, email: p.email, phone: p.phone, nik: p.nik };
+  });
+  res.json({ users });
 });
 
 /* ---------- Admin: API key ---------- */

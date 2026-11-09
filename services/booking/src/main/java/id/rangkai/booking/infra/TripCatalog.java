@@ -17,11 +17,14 @@ public final class TripCatalog {
     public record Stop(int seq, String code, String name, int km, long departAt) {}
     public record Fare(long base, long perKm) {}
 
-    public record Trip(String id, String trainName, String status, long departureAt, List<Stop> stops, Map<String, String> seatClass, Map<String, Fare> fares) {
+    public record Trip(String id, String trainId, String trainName, boolean trainEnabled, String status, long departureAt, String masinisId,
+                       List<Stop> stops, Map<String, String> seatClass, Map<String, Fare> fares, int seniorDiscountPercent) {
+
+        /** Rute melingkar bisa melewati stasiun yang sama dua kali, jadi tujuan dicari setelah stasiun asal. */
         public SegmentRange range(String from, String to) {
             Stop a = stops.stream().filter(s -> s.code().equals(from)).findFirst().orElse(null);
-            Stop b = stops.stream().filter(s -> s.code().equals(to)).findFirst().orElse(null);
-            if (a == null || b == null || a.seq() >= b.seq()) {
+            Stop b = a == null ? null : stops.stream().filter(s -> s.code().equals(to) && s.seq() > a.seq()).findFirst().orElse(null);
+            if (a == null || b == null) {
                 throw new DomainException(422, "INVALID_SEGMENT", "Stasiun asal harus berada sebelum stasiun tujuan pada rute ini.");
             }
             return new SegmentRange(a.seq(), b.seq());
@@ -38,6 +41,7 @@ public final class TripCatalog {
 
         /** Penjualan ruas ditutup begitu kereta meninggalkan stasiun asal ruas tersebut. */
         public void assertBookable(SegmentRange r, long now) {
+            if (!trainEnabled) throw new DomainException(409, "TRAIN_DISABLED", "Kereta ini sedang tidak beroperasi.");
             if ("CANCELLED".equals(status)) throw new DomainException(409, "TRIP_CANCELLED", "Perjalanan ini dibatalkan.");
             if (stops.get(r.from()).departAt() <= now) throw new DomainException(409, "TRIP_DEPARTED", "Kereta sudah berangkat dari stasiun asal.");
         }
@@ -75,17 +79,27 @@ public final class TripCatalog {
         return trip;
     }
 
+    /** Perjalanan yang sudah lewat, dipakai sekali untuk mengisi riwayat demo. */
+    public List<Trip> past(int days) throws Exception {
+        Mtls.Response r = mtls.get(discovery.urlOf("catalog") + "/internal/trips-past?days=" + days, Duration.ofSeconds(30));
+        if (r.status() != 200 || r.json() == null) throw new IllegalStateException("catalog status " + r.status());
+        List<Trip> out = new ArrayList<>();
+        for (JsonNode t : r.json().path("trips")) out.add(parse(t));
+        return out;
+    }
+
     private static DomainException unavailable() {
         return new DomainException(503, "SERVICE_UNAVAILABLE", "Layanan jadwal sedang tidak tersedia. Coba lagi sebentar.");
     }
 
-    private static Trip parse(JsonNode j) {
+    static Trip parse(JsonNode j) {
         List<Stop> stops = new ArrayList<>();
         for (JsonNode s : j.path("stops")) stops.add(new Stop(s.path("seq").asInt(), s.path("code").asText(), s.path("name").asText(), s.path("km").asInt(), s.path("departAt").asLong()));
-        Map<String, String> seatClass = new HashMap<>();
+        Map<String, String> seatClass = new java.util.LinkedHashMap<>();
         for (JsonNode c : j.path("coaches")) for (JsonNode s : c.path("seats")) seatClass.put(s.asText(), c.path("seatClass").asText());
         Map<String, Fare> fares = new HashMap<>();
         j.path("fares").fields().forEachRemaining(e -> fares.put(e.getKey(), new Fare(e.getValue().path("base").asLong(), e.getValue().path("perKm").asLong())));
-        return new Trip(j.path("id").asText(), j.path("trainName").asText(), j.path("status").asText(), j.path("departureAt").asLong(), stops, seatClass, fares);
+        return new Trip(j.path("id").asText(), j.path("trainId").asText(), j.path("trainName").asText(), j.path("trainEnabled").asBoolean(true), j.path("status").asText(),
+            j.path("departureAt").asLong(), j.path("masinisId").isNull() ? null : j.path("masinisId").asText(null), stops, seatClass, fares, j.path("seniorDiscountPercent").asInt(10));
     }
 }

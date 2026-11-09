@@ -48,7 +48,11 @@ public final class Api {
         app.route("GET", "/api/trips/{id}/availability", this::availability);
         app.route("GET", "/api/trips/{id}/seats/stream", this::stream);
         app.route("GET", "/api/trips/{id}/manifest", ctx -> {
-            ctx.user("manifest:read");
+            var u = ctx.user("manifest:read");
+            // Masinis hanya boleh melihat manifest perjalanan yang menjadi tugasnya.
+            if (u.has("masinis") && !u.has("admin") && !u.sub().equals(catalog.get(ctx.param("id")).masinisId())) {
+                throw new DomainException(403, "NOT_YOUR_TRIP", "Perjalanan ini bukan jadwal dinas Anda.");
+            }
             ctx.json(200, Map.of("tripId", ctx.param("id"), "passengers", bookings.manifest(ctx.param("id"))));
         });
 
@@ -88,9 +92,27 @@ public final class Api {
         });
         app.route("GET", "/api/admin/booking-stats", ctx -> {
             ctx.user("system:read");
-            Map<String, Object> out = new LinkedHashMap<>(bookings.stats());
+            Map<String, Object> out = new LinkedHashMap<>(bookings.dashboard());
             out.put("instance", instanceId);
             ctx.json(200, out);
+        });
+        app.route("GET", "/api/admin/trips/{id}/passengers", ctx -> {
+            ctx.user("system:read");
+            ctx.json(200, Map.of("tripId", ctx.param("id"), "passengers", bookings.tripPassengers(ctx.param("id"))));
+        });
+        app.route("POST", "/api/admin/trip-stats", ctx -> {
+            ctx.user("system:read");
+            ctx.json(200, Map.of("stats", bookings.tripStats(idList(ctx.body()))));
+        });
+
+        app.route("POST", "/internal/trips/claim-counts", ctx -> {
+            ctx.requireService("catalog");
+            ctx.json(200, Map.of("counts", bookings.claimCounts(idList(ctx.body()))));
+        });
+        app.route("POST", "/internal/bookings/{id}/hold", ctx -> {
+            ctx.requireService("payment");
+            ctx.user("internal:booking.write");
+            ctx.json(200, bookings.extendHold(ctx.param("id"), ctx.body().path("hours").asInt(0)));
         });
 
         // Internal: hanya service tertentu, dibuktikan oleh sertifikat mTLS.
@@ -101,7 +123,7 @@ public final class Api {
         app.route("GET", "/internal/bookings/{id}", ctx -> {
             ctx.requireService("payment");
             ctx.user("internal:booking.read");
-            ctx.json(200, bookings.internalView(ctx.param("id")));
+            ctx.json(200, bookings.internalView(ctx.param("id"), "1".equals(ctx.query().get("detail"))));
         });
     }
 
@@ -193,8 +215,14 @@ public final class Api {
                     p.hasNonNull("nik") ? p.path("nik").asText() : null, p.hasNonNull("phone") ? p.path("phone").asText() : null));
             }
             if (pax.isEmpty()) throw new DomainException(422, "VALIDATION_FAILED", "Data penumpang wajib diisi.");
-            return bookings.create(u.sub(), required(b, "lockId"), pax);
+            return bookings.create(u.sub(), u.name(), u.email(), required(b, "lockId"), pax);
         });
+    }
+
+    private static List<String> idList(JsonNode body) {
+        List<String> ids = new ArrayList<>();
+        body.path("tripIds").forEach(n -> { if (ids.size() < 200 && n.asText("").matches("[A-Za-z0-9_-]{1,64}")) ids.add(n.asText()); });
+        return ids;
     }
 
     private static String required(JsonNode b, String field) {

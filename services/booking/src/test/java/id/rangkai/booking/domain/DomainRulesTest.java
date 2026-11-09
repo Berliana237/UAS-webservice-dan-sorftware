@@ -54,7 +54,7 @@ class DomainRulesTest {
     @DisplayName("PassengerType (BVA usia)")
     class PassengerTypes {
         @ParameterizedTest(name = "usia {0} adalah {1}")
-        @CsvSource({"0,INFANT", "2,INFANT", "3,CHILD", "11,CHILD", "12,ADULT", "59,ADULT", "60,SENIOR", "120,SENIOR"})
+        @CsvSource({"0,INFANT", "3,INFANT", "4,CHILD", "16,CHILD", "17,ADULT", "59,ADULT", "60,SENIOR", "120,SENIOR"})
         void ageBoundaries(int age, PassengerType expected) {
             assertEquals(expected, PassengerType.fromAge(age));
         }
@@ -65,28 +65,40 @@ class DomainRulesTest {
             IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> PassengerType.fromAge(age));
             assertEquals("Usia harus 0 sampai 120", e.getMessage());
         }
+
+        @Test
+        @DisplayName("Label golongan dalam bahasa Indonesia")
+        void labels() {
+            assertAll(
+                () -> assertEquals("Bayi", PassengerType.INFANT.label()),
+                () -> assertEquals("Anak", PassengerType.CHILD.label()),
+                () -> assertEquals("Dewasa", PassengerType.ADULT.label()),
+                () -> assertEquals("Lansia", PassengerType.SENIOR.label()));
+        }
     }
 
     @Nested
     @DisplayName("FareCalculator")
     class Fares {
-        @ParameterizedTest(name = "base {0} + {1}/km x {2} km, {3} = Rp{4}")
+        @ParameterizedTest(name = "base {0} + {1}/km x {2} km, {3}, diskon lansia {4}% = Rp{5}")
         @CsvSource({
-            "45000,900,155,ADULT,185000",
-            "45000,900,155,CHILD,139000",
-            "45000,900,155,SENIOR,148000",
-            "30000,520,1,ADULT,31000",
-            "1000,0,1,ADULT,1000",
+            "60000,880,670,ADULT,10,650000",
+            "60000,880,670,INFANT,10,650000",
+            "60000,880,670,CHILD,10,650000",
+            "60000,880,670,SENIOR,10,585000",
+            "60000,880,670,SENIOR,0,650000",
+            "60000,880,670,SENIOR,100,0",
+            "25000,300,1,ADULT,10,26000",
         })
-        void computesFare(long base, long perKm, int km, PassengerType type, long expected) {
-            assertEquals(expected, FareCalculator.fare(base, perKm, km, type));
+        void computesFare(long base, long perKm, int km, PassengerType type, int senior, long expected) {
+            assertEquals(expected, FareCalculator.fare(base, perKm, km, type, senior));
         }
 
-        @Test
-        @DisplayName("Bayi tidak mendapat kursi sendiri")
-        void infantRejected() {
-            DomainException e = assertThrows(DomainException.class, () -> FareCalculator.fare(45000, 900, 10, PassengerType.INFANT));
-            assertEquals("INFANT_NO_SEAT", e.code());
+        @ParameterizedTest(name = "diskon lansia {0}% ditolak")
+        @ValueSource(ints = {-1, 101})
+        @DisplayName("Diskon lansia di luar 0 sampai 100 ditolak (BVA)")
+        void discountOutOfRangeThrows(int senior) {
+            assertThrows(IllegalArgumentException.class, () -> FareCalculator.fare(1000, 10, 5, PassengerType.SENIOR, senior));
         }
 
         @Test
@@ -102,7 +114,8 @@ class DomainRulesTest {
     @DisplayName("NikValidator")
     class Nik {
         @ParameterizedTest(name = "NIK sah: {0}")
-        @ValueSource(strings = {"3578015203990001", "1101011201000001", "9601017112000001", "3578010101990001"})
+        @ValueSource(strings = {"3578015203990001", "1234567890123456", "0000000000000000", "9999999999999999"})
+        @DisplayName("Angka bebas asal tepat 16 digit")
         void validNik(String nik) {
             assertTrue(NikValidator.isValid(nik));
         }
@@ -110,16 +123,10 @@ class DomainRulesTest {
         @ParameterizedTest(name = "NIK salah: \"{0}\"")
         @NullAndEmptySource
         @ValueSource(strings = {
-            "357801520399000",   // 15 digit
-            "35780152039900012", // 17 digit
-            "1001015203990001",  // provinsi 10
-            "9701015203990001",  // provinsi 97
-            "3578013203990001",  // tanggal 32
-            "3578014003990001",  // tanggal 40
-            "3578017203990001",  // tanggal 72
-            "3578015200990001",  // bulan 00
-            "3578015213990001",  // bulan 13
+            "357801520399000",   // 15 digit (batas bawah - 1)
+            "35780152039900012", // 17 digit (batas atas + 1)
             "35780152039900AB",  // bukan angka
+            "3578 01520399000",  // mengandung spasi
         })
         void invalidNik(String nik) {
             assertFalse(NikValidator.isValid(nik));
@@ -134,7 +141,7 @@ class DomainRulesTest {
         }
 
         @Test
-        @DisplayName("NIK anak boleh kosong, tetapi bila diisi harus benar")
+        @DisplayName("NIK anak boleh kosong, tetapi bila diisi harus 16 digit")
         void childNikMustBeValidWhenPresent() {
             assertEquals("INVALID_NIK", assertThrows(DomainException.class, () -> NikValidator.check("123", 10)).code());
         }
