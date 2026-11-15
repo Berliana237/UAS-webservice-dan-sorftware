@@ -273,6 +273,7 @@ function updateStatus(id, status, delayMinutes = 0, actor) {
 }
 
 function createExtraTrip({ trainId, direction = 'A', serviceDate, departureTime }, actor) {
+  if (typeof trainId !== 'string' || !trainId) throw new ApiError(422, 'VALIDATION_FAILED', 'trainId wajib diisi.', { fields: { trainId: 'Wajib diisi.' } });
   const train = st.train.get(trainId);
   if (!train) throw new ApiError(422, 'UNKNOWN_TRAIN', 'Kereta tidak dikenal.');
   if (!['A', 'B'].includes(direction)) throw new ApiError(422, 'VALIDATION_FAILED', 'Arah harus A atau B.');

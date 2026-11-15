@@ -85,6 +85,7 @@ paths:
         - { name: state, in: query, required: true, schema: { type: string, minLength: 8 } }
         - { name: scope, in: query, schema: { type: string } }
       responses:
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: auth_request dibuat }
         '302': { description: Dialihkan ke halaman masuk }
         '400': { $ref: '#/components/responses/Error' }
@@ -105,6 +106,7 @@ paths:
                 email: { type: string }
                 password: { type: string }
       responses:
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: 'Berisi code, state, dan redirect_to' }
         '401': { $ref: '#/components/responses/Error' }
         '423': { description: Akun terkunci sementara setelah 5 kali gagal }
@@ -131,6 +133,7 @@ paths:
                 refresh_token: { type: string }
                 scope: { type: string }
       responses:
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Token, content: { application/json: { schema: { $ref: '#/components/schemas/TokenResponse' } } } }
         '400': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
@@ -143,6 +146,8 @@ paths:
           application/x-www-form-urlencoded:
             schema: { type: object, properties: { client_id: { type: string }, token: { type: string } } }
       responses:
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Selalu 200, tidak membocorkan keberadaan token }
   /oauth/userinfo:
     get:
@@ -150,6 +155,7 @@ paths:
       summary: Profil dari access token
       security: [{ bearer: [] }, { bearerToken: [] }]
       responses:
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Profil }
         '401': { $ref: '#/components/responses/Error' }
   /api/auth/me:
@@ -158,6 +164,7 @@ paths:
       summary: Profil pengguna saat ini
       security: [{ bearer: [] }, { bearerToken: [] }]
       responses:
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Profil }
         '401': { $ref: '#/components/responses/Error' }
     patch:
@@ -178,6 +185,8 @@ paths:
                 nik: { type: string, nullable: true, description: 16 digit angka }
                 birthDate: { type: string, format: date, nullable: true }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Profil terbaru }
         '422': { $ref: '#/components/responses/Error' }
   /api/auth/me/password:
@@ -192,6 +201,8 @@ paths:
           application/json:
             schema: { type: object, required: [currentPassword, newPassword], properties: { currentPassword: { type: string }, newPassword: { type: string, minLength: 8, maxLength: 72 } } }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Diganti }
         '422': { description: Sandi lama salah atau sandi baru lemah, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '429': { $ref: '#/components/responses/RateLimited' }
@@ -231,6 +242,7 @@ paths:
                 serviceDate: { type: string, format: date }
                 departureTime: { type: string, example: '09:30' }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '201': { description: Dibuat }
         '403': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
@@ -259,6 +271,8 @@ paths:
                 status: { type: string, enum: [SCHEDULED, DELAYED, CANCELLED] }
                 delayMinutes: { type: integer }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Diubah }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
@@ -283,6 +297,7 @@ paths:
         - { name: from, in: query, required: true, schema: { type: string } }
         - { name: to, in: query, required: true, schema: { type: string } }
       responses:
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Daftar kursi LOCKED dan BOOKED }
   /api/trips/{id}/seats/stream:
     parameters: [{ $ref: '#/components/parameters/TripId' }]
@@ -299,6 +314,7 @@ paths:
       summary: Daftar penumpang (NIK dimasker)
       security: [{ bearer: [manifest:read] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Manifest }
         '403': { $ref: '#/components/responses/Error' }
   /api/locks:
@@ -331,6 +347,8 @@ paths:
       summary: Status penahanan milik sendiri
       security: [{ bearer: [booking:read] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Lock, content: { application/json: { schema: { $ref: '#/components/schemas/Lock' } } } }
         '404': { $ref: '#/components/responses/Error' }
     put:
@@ -351,6 +369,8 @@ paths:
               additionalProperties: false
               properties: { seats: { type: array, minItems: 1, uniqueItems: true, items: { type: string, example: EKS1-5A } } }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Lock setelah diubah, content: { application/json: { schema: { $ref: '#/components/schemas/Lock' } } } }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
@@ -360,6 +380,8 @@ paths:
       summary: Melepas kursi
       security: [{ bearer: [booking:write] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Dilepas }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
@@ -369,6 +391,8 @@ paths:
       summary: Pesanan milik sendiri
       security: [{ bearer: [booking:read] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Daftar pesanan }
     post:
       tags: [Pesanan]
@@ -382,6 +406,8 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/BookingRequest' }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '201': { description: Pesanan menunggu bayar, content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
         '400': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
@@ -401,6 +427,8 @@ paths:
       description: Pesanan milik orang lain dijawab 404 agar keberadaannya tidak bocor.
       security: [{ bearer: [booking:read] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Pesanan, content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
         '404': { $ref: '#/components/responses/Error' }
   /api/bookings/{id}/refund-preview:
@@ -410,6 +438,8 @@ paths:
       summary: Perkiraan pengembalian dana sebelum membatalkan
       security: [{ bearer: [booking:read] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: 'Persentase: >=72 jam 90%, >=24 jam 75%, >=3 jam 50%, <3 jam 0%' }
         '404': { $ref: '#/components/responses/Error' }
   /api/bookings/{id}/cancel:
@@ -419,6 +449,8 @@ paths:
       summary: Membatalkan pesanan dan melepas kursi
       security: [{ bearer: [booking:write] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Dibatalkan }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
@@ -433,6 +465,8 @@ paths:
           application/json:
             schema: { type: object, required: [ticketCode], additionalProperties: false, properties: { ticketCode: { type: string } } }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Berhasil }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
@@ -444,6 +478,8 @@ paths:
       security: [{ bearer: [] }, { bearerToken: [] }]
       parameters: [{ name: bookingId, in: query, required: true, schema: { type: string } }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Daftar pembayaran }
         '422': { $ref: '#/components/responses/Error' }
     post:
@@ -464,6 +500,8 @@ paths:
                 bookingId: { type: string }
                 method: { type: string, enum: [QRIS, VA_BCA, VA_MANDIRI], default: QRIS, description: QRIS lunas lewat webhook. VA lunas setelah bukti transfer diterima admin. }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '201': { description: 'Berisi payment, checkoutToken, dan instructions' }
         '400': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
@@ -488,6 +526,8 @@ paths:
                 dataBase64: { type: string, description: Isi berkas dalam base64 }
                 note: { type: string, maxLength: 300 }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '201': { description: Bukti diterima, menunggu verifikasi admin }
         '404': { $ref: '#/components/responses/Error' }
         '409': { description: 'NOT_A_TRANSFER atau PROOF_NOT_ACCEPTED', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
@@ -499,6 +539,8 @@ paths:
       security: [{ bearer: [] }, { bearerToken: [] }]
       parameters: [{ name: proofId, in: path, required: true, schema: { type: string } }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Berkas, content: { image/png: {}, image/jpeg: {}, image/webp: {}, application/pdf: {} } }
         '404': { $ref: '#/components/responses/Error' }
   /api/qris/{token}:
@@ -527,6 +569,8 @@ paths:
       summary: Status pembayaran milik sendiri
       security: [{ bearer: [] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Pembayaran }
         '404': { $ref: '#/components/responses/Error' }
   /api/payments/webhook:
@@ -571,6 +615,8 @@ paths:
                 outcome: { type: string, enum: [success, fail] }
                 amountOverride: { type: integer, description: Hanya untuk uji AMOUNT_MISMATCH }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '202': { description: Sedang diproses }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
@@ -581,6 +627,8 @@ paths:
       summary: Notifikasi milik sendiri
       security: [{ bearer: [] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Daftar notifikasi }
   /api/notifications/unread-count:
     get:
@@ -588,6 +636,8 @@ paths:
       summary: Jumlah notifikasi belum dibaca (untuk ikon lonceng)
       security: [{ bearer: [] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: '{ unread }' }
   /api/notifications/read-all:
     post:
@@ -595,6 +645,8 @@ paths:
       summary: Menandai semua notifikasi dibaca
       security: [{ bearer: [] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: '{ updated }' }
   /api/notifications/{id}/read:
     post:
@@ -603,6 +655,8 @@ paths:
       security: [{ bearer: [] }, { bearerToken: [] }]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Ditandai }
         '404': { $ref: '#/components/responses/Error' }
   /api/partner/v1/stations:
@@ -611,6 +665,7 @@ paths:
       summary: Daftar stasiun untuk partner
       security: [{ apiKey: [] }, { bearer: [partner:read] }]
       responses:
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Daftar stasiun }
         '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
@@ -624,6 +679,8 @@ paths:
         - { name: to, in: query, required: true, schema: { type: string } }
         - { name: date, in: query, required: true, schema: { type: string, format: date } }
       responses:
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Daftar perjalanan }
         '401': { $ref: '#/components/responses/Error' }
   /api/partner/v1/trips/{id}/availability:
@@ -636,6 +693,8 @@ paths:
         - { name: from, in: query, required: true, schema: { type: string } }
         - { name: to, in: query, required: true, schema: { type: string } }
       responses:
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Ketersediaan }
         '401': { $ref: '#/components/responses/Error' }
   /api/admin/users:
@@ -644,6 +703,7 @@ paths:
       summary: Daftar pengguna
       security: [{ bearer: ['user:manage'] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Daftar pengguna }
         '403': { $ref: '#/components/responses/Error' }
     post:
@@ -666,6 +726,8 @@ paths:
                 nik: { type: string, nullable: true }
                 birthDate: { type: string, format: date, nullable: true }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '201': { description: Dibuat }
         '409': { description: EMAIL_TAKEN }
         '422': { $ref: '#/components/responses/Error' }
@@ -681,6 +743,9 @@ paths:
           application/json:
             schema: { type: object, required: [role], properties: { role: { type: string, enum: [customer, masinis, admin] } } }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Diubah }
         '404': { $ref: '#/components/responses/Error' }
         '409': { description: Tidak bisa mengubah peran akun sendiri }
@@ -690,6 +755,8 @@ paths:
       summary: Daftar API key, hanya awalan
       security: [{ bearer: [admin] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Daftar }
     post:
       tags: [Admin]
@@ -708,6 +775,8 @@ paths:
                 ratePerMin: { type: integer, minimum: 1, maximum: 6000 }
                 expiresInDays: { type: integer, minimum: 1, maximum: 365 }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '201': { description: Dibuat }
         '422': { $ref: '#/components/responses/Error' }
   /api/admin/api-keys/{id}/rotate:
@@ -717,6 +786,8 @@ paths:
       security: [{ bearer: [admin] }, { bearerToken: [] }]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '201': { description: Key baru }
         '404': { $ref: '#/components/responses/Error' }
   /api/admin/api-keys/{id}:
@@ -726,6 +797,8 @@ paths:
       security: [{ bearer: [admin] }, { bearerToken: [] }]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Dicabut }
         '404': { $ref: '#/components/responses/Error' }
   /api/admin/audit:
@@ -735,6 +808,8 @@ paths:
       security: [{ bearer: ['audit:read'] }, { bearerToken: [] }]
       parameters: [{ name: limit, in: query, schema: { type: integer, default: 100 } }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Catatan audit }
   /api/admin/alerts:
     get:
@@ -742,6 +817,8 @@ paths:
       summary: Peringatan keamanan
       security: [{ bearer: ['audit:read'] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Daftar peringatan }
   /api/admin/queue-consumed:
     get:
@@ -749,6 +826,8 @@ paths:
       summary: Pesan uji yang sudah dikonsumsi
       security: [{ bearer: ['audit:read'] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Daftar pesan }
   /api/admin/registry:
     get:
@@ -756,6 +835,8 @@ paths:
       summary: Service dan instance yang terdaftar
       security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Daftar service }
   /api/admin/queues:
     get:
@@ -763,6 +844,8 @@ paths:
       summary: Statistik antrian pesan
       security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Statistik }
   /api/admin/queues/{queue}/dlq:
     get:
@@ -771,6 +854,9 @@ paths:
       security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       parameters: [{ name: queue, in: path, required: true, schema: { type: string } }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Data tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Isi DLQ }
   /api/admin/queues/{queue}/dlq/replay:
     post:
@@ -779,6 +865,9 @@ paths:
       security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       parameters: [{ name: queue, in: path, required: true, schema: { type: string } }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Data tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Jumlah pesan dikirim ulang }
   /api/admin/queues/publish-test:
     post:
@@ -790,6 +879,9 @@ paths:
           application/json:
             schema: { type: object, properties: { poison: { type: boolean }, note: { type: string } } }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '202': { description: Diterbitkan }
   /api/admin/booking-stats:
     get:
@@ -797,6 +889,8 @@ paths:
       summary: Statistik pesanan, lock, dan outbox
       security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Statistik }
   /api/trains:
     get:
@@ -821,6 +915,7 @@ paths:
           application/json:
             schema: { type: object, required: [query], properties: { query: { type: string, example: '{ stations { code name city } }' }, variables: { type: object }, operationName: { type: string } } }
       responses:
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: 'data dan/atau errors[] (extensions.code, misalnya INSUFFICIENT_SCOPE, INVALID_SEGMENT)' }
         '400': { description: 'GRAPHQL_VALIDATION_FAILED, QUERY_TOO_LARGE, INVALID_QUERY' }
         '429': { $ref: '#/components/responses/RateLimited' }
@@ -867,6 +962,7 @@ paths:
         - { name: from, in: query, schema: { type: string, format: date }, description: Default kemarin }
         - { name: to, in: query, schema: { type: string, format: date }, description: Default 14 hari ke depan }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: 'Perjalanan yang ditugaskan: hari, tanggal, jam, kereta, rute, status' }
         '403': { $ref: '#/components/responses/Error' }
   /api/masinis/trips/{id}/delay:
@@ -882,6 +978,8 @@ paths:
           application/json:
             schema: { type: object, required: [delayMinutes], properties: { delayMinutes: { type: integer, minimum: 0, maximum: 720 } } }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Status perjalanan terbaru }
         '404': { description: Bukan perjalanan dinas masinis ini, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '422': { $ref: '#/components/responses/Error' }
@@ -892,6 +990,8 @@ paths:
       summary: Detail pengguna
       security: [{ bearer: ['user:manage'] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Pengguna }
         '404': { $ref: '#/components/responses/Error' }
     patch:
@@ -914,6 +1014,9 @@ paths:
                 birthDate: { type: string, format: date, nullable: true }
                 active: { type: boolean }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Data tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Diubah }
         '409': { description: 'EMAIL_TAKEN atau CANNOT_CHANGE_SELF', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '422': { $ref: '#/components/responses/Error' }
@@ -922,6 +1025,8 @@ paths:
       summary: Menghapus pengguna
       security: [{ bearer: ['user:manage'] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Dihapus }
         '404': { $ref: '#/components/responses/Error' }
   /api/admin/users/{id}/password:
@@ -936,6 +1041,9 @@ paths:
           application/json:
             schema: { type: object, required: [password], properties: { password: { type: string, minLength: 8, maxLength: 72 } } }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Data tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Diganti }
         '422': { $ref: '#/components/responses/Error' }
   /api/admin/stations:
@@ -944,6 +1052,8 @@ paths:
       summary: Semua stasiun, termasuk yang nonaktif
       security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: 'Stasiun beserta usedByRoute' }
     post:
       tags: [Data Operasional]
@@ -955,6 +1065,8 @@ paths:
           application/json:
             schema: { type: object, required: [code, name, city], properties: { code: { type: string, pattern: '^[A-Z]{2,4}$', example: GMR }, name: { type: string, minLength: 3 }, city: { type: string } } }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '201': { description: Dibuat }
         '409': { description: STATION_EXISTS }
         '422': { $ref: '#/components/responses/Error' }
@@ -969,6 +1081,9 @@ paths:
           application/json:
             schema: { type: object, properties: { name: { type: string }, city: { type: string }, active: { type: boolean } } }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Diubah }
         '404': { $ref: '#/components/responses/Error' }
     delete:
@@ -976,6 +1091,9 @@ paths:
       summary: Menghapus stasiun yang tidak dipakai rute
       security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Data tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Dihapus }
         '409': { description: STATION_IN_USE }
   /api/admin/trains:
@@ -984,6 +1102,8 @@ paths:
       summary: Semua kereta, termasuk nonaktif dan masinis yang ditugaskan
       security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Daftar kereta }
     post:
       tags: [Data Operasional]
@@ -1002,6 +1122,8 @@ paths:
                 name: { type: string, example: Argo Bromo Anggrek }
                 classes: { type: array, items: { type: string, enum: [EKONOMI, EKSEKUTIF, LUXURY] }, description: Menentukan susunan 9 gerbong }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '201': { description: Dibuat }
         '409': { description: TRAIN_EXISTS }
         '422': { $ref: '#/components/responses/Error' }
@@ -1012,6 +1134,8 @@ paths:
       summary: Detail kereta
       security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Kereta }
         '404': { $ref: '#/components/responses/Error' }
     patch:
@@ -1024,6 +1148,10 @@ paths:
           application/json:
             schema: { type: object, properties: { name: { type: string }, number: { type: string }, enabled: { type: boolean }, masinisId: { type: string, nullable: true }, masinisName: { type: string } } }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Data tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Diubah }
         '409': { description: TRAIN_INCOMPLETE }
     delete:
@@ -1031,6 +1159,9 @@ paths:
       summary: Menghapus kereta tanpa riwayat perjalanan
       security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Data tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Dihapus }
         '409': { description: TRAIN_HAS_HISTORY, nonaktifkan saja }
   /api/admin/trains/{id}/route:
@@ -1049,6 +1180,9 @@ paths:
               properties:
                 stops: { type: array, minItems: 2, maxItems: 20, items: { type: object, properties: { code: { type: string }, minuteOffset: { type: integer }, km: { type: integer } } }, description: 'Stasiun pertama 0 menit 0 km, berikutnya harus naik' }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Data tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Diganti, berlaku untuk jadwal yang dibuat berikutnya }
         '422': { $ref: '#/components/responses/Error' }
   /api/admin/trains/{id}/fares:
@@ -1063,6 +1197,9 @@ paths:
           application/json:
             schema: { type: object, required: [fares], properties: { fares: { type: array, items: { type: object, properties: { seatClass: { type: string, enum: [EKONOMI, EKSEKUTIF, LUXURY] }, base: { type: integer }, perKm: { type: integer } } } } } }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Data tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Disimpan }
         '422': { $ref: '#/components/responses/Error' }
   /api/admin/trains/{id}/services:
@@ -1077,6 +1214,9 @@ paths:
           application/json:
             schema: { type: object, required: [services], properties: { services: { type: array, maxItems: 12, items: { type: object, properties: { direction: { type: string, enum: [A, B] }, departureTime: { type: string, example: '07:40' }, active: { type: boolean } } } } } }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Data tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Disimpan }
         '422': { $ref: '#/components/responses/Error' }
   /api/admin/trains/{id}/regenerate:
@@ -1086,6 +1226,9 @@ paths:
       security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Data tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: '{ removed, kept, created }' }
   /api/admin/trains/{id}/trips:
     get:
@@ -1094,6 +1237,9 @@ paths:
       security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Data tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Daftar perjalanan }
   /api/admin/settings:
     get:
@@ -1101,6 +1247,8 @@ paths:
       summary: Pengaturan tarif
       security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: '{ seniorDiscountPercent }' }
     put:
       tags: [Data Operasional]
@@ -1112,6 +1260,8 @@ paths:
           application/json:
             schema: { type: object, required: [seniorDiscountPercent], properties: { seniorDiscountPercent: { type: integer, minimum: 0, maximum: 100, default: 10 } } }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Disimpan }
         '422': { $ref: '#/components/responses/Error' }
   /api/admin/catalog-stats:
@@ -1120,6 +1270,8 @@ paths:
       summary: Ringkasan katalog untuk dashboard
       security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Statistik }
   /api/admin/trips/{id}/passengers:
     get:
@@ -1128,6 +1280,8 @@ paths:
       security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       parameters: [{ $ref: '#/components/parameters/TripId' }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Penumpang }
   /api/admin/trip-stats:
     post:
@@ -1140,6 +1294,9 @@ paths:
           application/json:
             schema: { type: object, required: [tripIds], properties: { tripIds: { type: array, maxItems: 200, items: { type: string } } } }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Statistik per perjalanan }
   /api/admin/transfers:
     get:
@@ -1148,6 +1305,8 @@ paths:
       security: [{ bearer: ['payment:review'] }, { bearerToken: [] }]
       parameters: [{ name: status, in: query, schema: { type: string, enum: [SUBMITTED, ACCEPTED, REJECTED] }, description: Tanpa nilai berarti semua }]
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: 'transfers[]: proof, payment, user (email, nama, NIK), booking (kereta, keberangkatan)' }
   /api/admin/transfers/{proofId}/decision:
     post:
@@ -1162,6 +1321,8 @@ paths:
           application/json:
             schema: { type: object, required: [decision], properties: { decision: { type: string, enum: [ACCEPT, REJECT] }, reason: { type: string, minLength: 5, maxLength: 300, description: Wajib untuk REJECT } } }
       responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Keputusan disimpan }
         '404': { $ref: '#/components/responses/Error' }
         '409': { description: PAYMENT_CLOSED }

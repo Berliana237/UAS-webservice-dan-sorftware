@@ -1,6 +1,6 @@
 # Draf Laporan Gabungan: Sistem Reservasi Kereta Antarkota dengan Seat Locking per Segmen
 
-> Draf mengikuti templat di materi sesi 8. Anggota Kelompok A: Jap Robertus Kurniawan Setiabudi (5803024004), Daniel (5803024005), Berliana Az Zahra Tristianti (5803024015), Calvin Liu Victory (5803024003), Evander Doxa Widiyanto (5803024016). Pembagian bab: `05-pembagian-tugas.md`. Lengkapi daftar pustaka, dan bagian berlabel [kelompok penguji] oleh Kelompok B. Tulis ulang dengan kata sendiri sebelum dikumpulkan.
+> Draf mengikuti templat di materi sesi 8. Anggota Kelompok A: Jap Robertus Kurniawan Setiabudi (5803024004), Daniel (5803024005), Berliana Az Zahra Tristianti (5803024015), Calvin Liu Victory (5803024003), Evander Doxa Widiyanto (5803024016, Web Service saja). Calvin hanya menulis bagian Software Testing. Pembagian bab: `05-pembagian-tugas.md`. Lengkapi daftar pustaka, dan bagian berlabel [kelompok penguji] oleh Kelompok B. Tulis ulang dengan kata sendiri sebelum dikumpulkan.
 
 ## 1. Abstrak
 
