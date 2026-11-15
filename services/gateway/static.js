@@ -53,7 +53,17 @@ function serveStatic(req, res, pathname) {
   }
 
   if (rel === '/docs' || rel === '/docs/') { res.setHeader('Content-Type', 'text/html; charset=utf-8'); return res.end(DOCS_HTML); }
-  if (rel === '/docs/openapi.yaml') return send(req, res, path.join(DOCS, 'openapi.yaml'), 'no-cache');
+  if (rel === '/docs/openapi.yaml') {
+    // Contoh tanggal di Swagger selalu 3 hari ke depan (WIB), agar "Try it out" langsung menghasilkan jadwal.
+    const day = new Date(Date.now() + 3 * 86400000 + 7 * 3600000).toISOString().slice(0, 10);
+    fs.readFile(path.join(DOCS, 'openapi.yaml'), 'utf8', (err, text) => {
+      if (err) return json(req, res, 404, 'NOT_FOUND', 'Berkas tidak ditemukan.');
+      const body = Buffer.from(text.replaceAll("example: '2026-11-20'", `example: '${day}'`));
+      res.writeHead(200, { 'Content-Type': 'text/yaml; charset=utf-8', 'Content-Length': body.length, 'Cache-Control': 'no-cache' });
+      res.end(req.method === 'HEAD' ? undefined : body);
+    });
+    return true;
+  }
   if (rel.startsWith('/docs/swagger/')) {
     const f = safeJoin(SWAGGER, rel.slice('/docs/swagger/'.length));
     if (f) return send(req, res, f, 'public, max-age=86400');

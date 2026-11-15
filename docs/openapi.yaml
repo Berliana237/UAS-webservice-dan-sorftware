@@ -219,7 +219,7 @@ paths:
       parameters:
         - { name: from, in: query, required: true, schema: { type: string, example: GMR } }
         - { name: to, in: query, required: true, schema: { type: string, example: MN } }
-        - { name: date, in: query, required: true, schema: { type: string, format: date } }
+        - { name: date, in: query, required: true, description: 'Tanggal berangkat (WIB) format yyyy-mm-dd, hari ini atau ke depan. Tanggal yang sudah lewat menghasilkan daftar kosong.', schema: { type: string, format: date, example: '2026-11-20' } }
         - { name: train, in: query, required: false, description: Kode kereta, misalnya GJY, untuk memfilter nama kereta, schema: { type: string, example: GJY } }
       responses:
         '200': { description: Daftar perjalanan beserta tarif dan kursi kosong pada ruas itu. Kereta nonaktif dan perjalanan yang sudah berangkat tidak tampil. }
@@ -677,7 +677,7 @@ paths:
       parameters:
         - { name: from, in: query, required: true, schema: { type: string } }
         - { name: to, in: query, required: true, schema: { type: string } }
-        - { name: date, in: query, required: true, schema: { type: string, format: date } }
+        - { name: date, in: query, required: true, description: 'Tanggal berangkat (WIB) format yyyy-mm-dd, hari ini atau ke depan. Tanggal yang sudah lewat menghasilkan daftar kosong.', schema: { type: string, format: date, example: '2026-11-20' } }
       responses:
         '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
