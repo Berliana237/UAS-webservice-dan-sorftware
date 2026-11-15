@@ -130,15 +130,112 @@ async function assignDefaultMasinis() {
       for (const t of pending) {
         const m = list[t.masinis_slot % list.length];
         db.prepare('UPDATE trains SET masinis_id=?, masinis_name=? WHERE id=?').run(m.id, m.name, t.id);
-        db.prepare('UPDATE trips SET masinis_id=?, masinis_name=? WHERE train_id=? AND masinis_id IS NULL').run(m.id, m.name, t.id);
       }
     });
     log.info('masinis demo dibagikan ke armada', { trains: pending.length });
+    refreshCrew();
   } catch (e) {
     setTimeout(assignDefaultMasinis, 3000).unref();
   }
 }
 setTimeout(assignDefaultMasinis, 1500).unref();
+
+/* ---------- Penugasan masinis per perjalanan (tanpa jadwal bentrok) ----------
+ * Satu masinis tidak boleh memegang dua perjalanan yang waktunya tumpang tindih. Aturan:
+ * - jeda istirahat minimal 30 menit setelah tiba (termasuk keterlambatan);
+ * - dinas berikutnya harus berangkat dari stasiun tempat dinas sebelumnya berakhir,
+ *   kecuali sudah istirahat panjang (>= 10 jam, dianggap bisa dipindah ke depo lain);
+ * - masinis utama kereta (diatur admin) didahulukan bila jadwalnya kosong.
+ * Perjalanan yang sudah berjalan atau berangkat kurang dari 2 jam lagi tidak diubah agar masinis tidak mendadak berganti.
+ */
+const CREW_REST_MS = 30 * 60000;
+const CREW_RELOCATE_MS = 10 * 3600000;
+const CREW_FREEZE_MS = 2 * 3600000;
+const CREW_DAY_MS = 12 * 3600000; // batas total jam dinas per hari per masinis
+const CREW_DAY_TRIPS = 3; // batas jumlah perjalanan per hari per masinis
+const CREW_LONG_MS = 8 * 3600000; // dinas >= 8 jam wajib diikuti istirahat panjang
+const CREW_LONG_REST_MS = 10 * 3600000;
+const restAfter = (r, end) => (end - r.departure_at >= CREW_LONG_MS ? CREW_LONG_REST_MS : CREW_REST_MS);
+let crewPool = [];
+function assignCrew() {
+  if (!crewPool.length) return { changed: 0, unassigned: 0 };
+  const now = Date.now();
+  const rows = db.prepare(`SELECT t.id, t.train_id, t.service_date, t.departure_at, t.delay_minutes, t.status, t.masinis_id, t.masinis_name,
+      (SELECT station_code FROM trip_stops WHERE trip_id=t.id ORDER BY seq LIMIT 1) AS s0,
+      (SELECT station_code FROM trip_stops WHERE trip_id=t.id ORDER BY seq DESC LIMIT 1) AS s1,
+      (SELECT MAX(arrive_at) FROM trip_stops WHERE trip_id=t.id) AS end_at
+    FROM trips t WHERE t.departure_at > ? ORDER BY t.departure_at, t.id`).all(now - 2 * 86400000);
+  const pref = new Map(st.trains.all().map((t) => [t.id, t.masinis_id]));
+  const byId = new Map(crewPool.map((m) => [m.id, m]));
+  const state = new Map(crewPool.map((m) => [m.id, { free: 0, ready: 0, at: null, day: new Map(), count: 0 }]));
+  const load = (s, date) => s.day.get(date) || { ms: 0, n: 0 };
+  const addLoad = (s, r, end) => { const v = load(s, r.service_date); s.day.set(r.service_date, { ms: v.ms + (end - r.departure_at), n: v.n + 1 }); };
+  const upd = db.prepare('UPDATE trips SET masinis_id=?, masinis_name=? WHERE id=?');
+  let changed = 0;
+  let unassigned = 0;
+  db.tx(() => {
+    for (const r of rows) {
+      const end = r.end_at + (r.delay_minutes || 0) * 60000;
+      const fixed = r.departure_at <= now + CREW_FREEZE_MS;
+      if (r.status === 'CANCELLED') continue;
+      if (fixed) {
+        // Dinas yang sudah dekat atau berjalan dipertahankan; hanya dicatat agar masinisnya tidak dijadwalkan bentrok.
+        const s = state.get(r.masinis_id);
+        if (s) { s.free = Math.max(s.free, end); s.ready = Math.max(s.ready, end + restAfter(r, end)); s.at = r.s1; s.count += 1; addLoad(s, r, end); }
+        continue;
+      }
+      const ok = (id) => {
+        const s = state.get(id);
+        if (!s || s.ready > r.departure_at) return false;
+        const v = load(s, r.service_date);
+        // Batas jam berlaku untuk gabungan dinas; satu perjalanan panjang (mis. Matarmaja 15 jam) boleh bila itu satu-satunya dinas hari itu.
+        if (v.n >= CREW_DAY_TRIPS || (v.n > 0 && v.ms + (end - r.departure_at) > CREW_DAY_MS)) return false;
+        return s.at === null || s.at === r.s0 || r.departure_at - s.free >= CREW_RELOCATE_MS;
+      };
+      // Masinis utama kereta didahulukan selama bebannya tidak jauh di atas rata-rata (adil untuk semua awak).
+      let total = 0;
+      for (const v of state.values()) total += v.count;
+      const avg = total / crewPool.length;
+      const p0 = pref.get(r.train_id);
+      let pick = p0 && ok(p0) && state.get(p0).count <= avg + 2 ? p0 : null;
+      // Selain itu: utamakan yang sudah berada di stasiun keberangkatan, lalu yang paling sedikit dinasnya, lalu yang paling lama menganggur.
+      if (!pick) {
+        let best = null;
+        for (const m of crewPool) {
+          if (!ok(m.id)) continue;
+          const s = state.get(m.id);
+          const score = [s.at === r.s0 ? 0 : 1, s.count, s.free];
+          if (!best || score[0] < best.score[0] || (score[0] === best.score[0] && (score[1] < best.score[1] || (score[1] === best.score[1] && score[2] < best.score[2])))) best = { id: m.id, score };
+        }
+        pick = best?.id || null;
+      }
+      if (pick) { const s = state.get(pick); s.free = end; s.ready = end + restAfter(r, end); s.at = r.s1; s.count += 1; addLoad(s, r, end); } else unassigned += 1;
+      if (pick !== r.masinis_id) { upd.run(pick, pick ? byId.get(pick).name : null, r.id); changed += 1; }
+    }
+  });
+  if (changed || unassigned) log.info('penugasan masinis diperbarui', { changed, unassigned });
+  return { changed, unassigned };
+}
+async function refreshCrew() {
+  try {
+    const r = await http.request(`${config.urls.auth}/internal/users?role=masinis`, { timeout: 4000 });
+    const list = (r.json?.users || []).map((u) => ({ id: u.id, name: u.name }));
+    if (list.length) crewPool = list;
+    if (crewPool.length && !setting('crew_main_spread_v1')) {
+      const trains = st.trains.all().sort((a, b) => a.id.localeCompare(b.id));
+      db.tx(() => {
+        trains.forEach((t, i) => { const m = crewPool[i % crewPool.length]; db.prepare('UPDATE trains SET masinis_id=?, masinis_name=? WHERE id=?').run(m.id, m.name, t.id); });
+        st.putSetting.run('crew_main_spread_v1', '1');
+      });
+    }
+    return assignCrew();
+  } catch (e) {
+    log.warn('daftar masinis belum bisa diambil', { err: e.message });
+    return null;
+  }
+}
+setTimeout(() => { refreshCrew(); }, 6000).unref();
+setInterval(() => { refreshCrew(); }, 3600000).unref();
 
 /* ---------- Model baca ---------- */
 const iso = (ms) => new Date(ms).toISOString();
@@ -285,6 +382,7 @@ function createExtraTrip({ trainId, direction = 'A', serviceDate, departureTime 
   const id = `${train.id}-${serviceDate.replaceAll('-', '')}-${direction}${departureTime.replace(':', '')}`;
   if (st.trip.get(id)) throw new ApiError(409, 'TRIP_EXISTS', 'Perjalanan pada jam itu sudah ada.');
   db.tx(() => generateTrip(train, { direction, departure_time: departureTime }, serviceDate));
+  assignCrew();
   bus.publishSafe('audit.trip.created', { action: 'trip.created', service: 'catalog', actor, target: id, at: Date.now() });
   return loadTrip(id);
 }
@@ -463,7 +561,7 @@ app.patch('/api/admin/trains/:id', adminOnly, (req, res) => {
   db.tx(() => {
     db.prepare('UPDATE trains SET name=?, number=?, enabled=?, masinis_id=?, masinis_name=? WHERE id=?').run(name, number, enabled, masinisId, masinisName, t.id);
     // Penugasan masinis berlaku untuk perjalanan yang belum berangkat. Riwayat tetap mencatat masinis saat itu.
-    if (b.masinisId !== undefined) db.prepare('UPDATE trips SET masinis_id=?, masinis_name=? WHERE train_id=? AND departure_at>?').run(masinisId, masinisName, t.id, Date.now());
+    if (b.masinisId !== undefined) setImmediate(() => { refreshCrew(); });
   });
   if (b.enabled !== undefined && enabled) ensureTrips(0, AHEAD_DAYS, t.id);
   audit('train.updated', req.user.sub, t.id, { enabled: Boolean(enabled) });
@@ -540,6 +638,7 @@ async function regenerateTrips(t) {
   const removable = future.filter((id) => !counts[id]);
   db.tx(() => removable.forEach((id) => { db.prepare('DELETE FROM trip_stops WHERE trip_id=?').run(id); db.prepare('DELETE FROM trips WHERE id=?').run(id); }));
   const created = ensureTrips(0, AHEAD_DAYS, t.id);
+  assignCrew();
   return { removed: removable.length, kept: future.length - removable.length, created };
 }
 

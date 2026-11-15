@@ -54,8 +54,10 @@ Kata sandi semua akun demo: **`Rangkai2026!`** (hanya untuk lingkungan demo, dia
 | Peran | Email | Bisa melakukan |
 |---|---|---|
 | Pelanggan | Daftar sendiri di halaman **Daftar** (tidak ada akun pelanggan bawaan) | Memesan, membayar, membatalkan |
-| Masinis | `masinis@rangkai.test`, `masinis2@rangkai.test` | Jadwal dinas, manifest berbentuk denah kursi (kursi dari akun pemesan yang sama disorot), check-in tiket, lapor keterlambatan, notifikasi 60 menit sebelum dinas |
+| Masinis | `masinis@rangkai.test`, `masinis2@rangkai.test`, sampai `masinis40@rangkai.test` (40 awak) | Jadwal dinas, manifest berbentuk denah kursi (kursi dari akun pemesan yang sama disorot), check-in tiket, lapor keterlambatan, notifikasi 60 menit sebelum dinas |
 | Admin | `admin@rangkai.test` | Data operasional (stasiun, kereta, rute, tarif, jam, diskon lansia), pengguna, verifikasi transfer, armada, sistem, audit, API key. Tidak bisa memesan |
+
+**Penugasan masinis per perjalanan.** Masinis dibagi otomatis ke setiap perjalanan (`assignCrew()` di `services/catalog/index.js`) dengan aturan: tidak ada dua dinas yang tumpang tindih, istirahat minimal 30 menit (10 jam setelah dinas 8 jam atau lebih), dinas berikutnya berangkat dari stasiun tempat dinas sebelumnya berakhir, maksimal 3 perjalanan dan 12 jam dinas gabungan per hari, serta beban dibagi merata. Masinis utama tiap kereta (diatur admin) didahulukan selama bebannya tidak jauh di atas rata-rata. Perjalanan yang berangkat kurang dari 2 jam lagi tidak diubah.
 
 Stack `run.bat` hanya membuat akun admin dan masinis. Akun pelanggan demo (`customer@rangkai.test`, `customer2@rangkai.test`) dan riwayat pesanan rekaan hanya dibuat di stack pengujian `test.bat` (`SEED_DEMO_CUSTOMERS=1`, `SEED_DEMO_HISTORY=1`). Koleksi Postman mendaftarkan dua akun pelanggannya sendiri di folder "00 Persiapan".
 
