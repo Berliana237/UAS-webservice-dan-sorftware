@@ -7,9 +7,9 @@ Proyek lintas mata kuliah Web Service x Software Testing. Menurut rotasi pada so
 | NIM | Nama | Web Service | Software Testing |
 |---|---|---|---|
 | 5803024004 | Jap Robertus Kurniawan Setiabudi | **25%** | 20% |
-| 5803024005 | Daniel | **24%** | 18% |
+| 5803024005 | Daniel | **24%** | 20% |
 | 5803024015 | Berliana Az Zahra Tristianti | 21% | **24%** |
-| 5803024003 | Calvin Liu Victory | 15% | **22%** |
+| 5803024003 | Calvin Liu Victory | 15% | 20% |
 | 5803024016 | Evander Doxa Widiyanto | 15% | 16% |
 | | **Total** | **100%** | **100%** |
 
@@ -32,9 +32,9 @@ Pembagian mengikuti rubrik: test plan (20%), test case design (25%), eksekusi pe
 | Anggota | Tanggung jawab | Komponen rubrik |
 |---|---|---|
 | **Berliana** (24%) | Koordinator pengujian. Menyusun test plan (ruang lingkup, strategi fungsional/performa/keamanan, jadwal, kriteria masuk-keluar, risiko). Test case design EP, BVA, decision table, state transition. Penanggung jawab bab 5 laporan dan komunikasi dengan Kelompok E | Test plan, test case design |
-| **Calvin** (22%) | Pengujian keamanan (OWASP API Top 10: autentikasi, otorisasi BOLA/BFLA, rate limit, injeksi). Penulisan bug report (langkah reproduksi, bukti, severity, prioritas, saran perbaikan) | Eksekusi, bug report |
+| **Calvin** (20%) | Pengujian keamanan (OWASP API Top 10: autentikasi, otorisasi BOLA/BFLA, rate limit, injeksi). Penulisan bug report (langkah reproduksi, bukti, severity, prioritas, saran perbaikan) | Eksekusi, bug report |
 | **Jap Robertus** (20%) | Pengujian performa dan beban (k6), skenario konkurensi. Penyiapan tooling (Postman/Newman, k6) dan otomasi | Eksekusi pengujian |
-| **Daniel** (18%) | Pengujian fungsional API lewat Postman/Newman dan PyTest (jalur sukses dan negatif). Retest dan verifikasi perbaikan dari Kelompok E | Eksekusi, retest |
+| **Daniel** (20%) | Pengujian fungsional API lewat Postman/Newman dan PyTest (jalur sukses dan negatif). Retest dan verifikasi perbaikan dari Kelompok E | Eksekusi, retest |
 | **Evander** (16%) | Pengujian fungsional ujung ke ujung dari sisi antarmuka. Pengumpulan bukti (tangkapan layar, log), rekap hasil, dan bagian 6.2 laporan | Eksekusi, laporan |
 
 ## Timeline minggu 8 sampai UAS
