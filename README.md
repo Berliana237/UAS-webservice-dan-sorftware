@@ -16,7 +16,7 @@ Database SQLite tiap service tersimpan di volume persisten, sehingga data tidak 
 
 ## Anggota Kelompok A
 
-| NIM | Nama | Web Service | Software Testing |
+| NRP | Nama | Web Service | Software Testing |
 |---|---|---|---|
 | 5803024004 | Jap Robertus Kurniawan Setiabudi | 27% | 27% |
 | 5803024005 | Daniel | 27% | 27% |
