@@ -422,3 +422,19 @@ form.shake{animation:shake .42s ease-in-out}
 
 /* Hitung mundur selalu terlihat saat mengisi formulir */
 .pax-page .page-head.no-pad,.pay-page .page-head.no-pad{position:sticky;top:68px;z-index:20;margin-inline:calc(var(--gut)*-1);padding:10px var(--gut);background:linear-gradient(180deg,var(--ink) 74%,transparent)}
+
+/* ---------- Ponsel: maskot tidak boleh menutupi konten ---------- */
+@media (max-width:860px){
+  /* Login/daftar: jendela pemandangan + Kiko disembunyikan, form jadi fokus utama. */
+  .auth{grid-template-rows:1fr}
+  .auth-view{display:none}
+  .auth-side{padding:88px 18px 40px;place-items:start center}
+  .auth-in{width:100%;max-width:440px}
+}
+@media (max-width:900px){
+  /* Beranda: Kiko pindah ke alur halaman di bawah tombol, lebih kecil, tanpa balon bicara. */
+  .hero{padding-bottom:120px}
+  .hero-kiko{--kk:clamp(110px,18vw,150px);position:relative;right:auto;bottom:auto;margin:6px 0 -96px auto}
+  .hero-kiko .kk-say{display:none}
+}
+@media (max-width:900px){.hero-kiko .kk-say{left:auto;right:0;transform:translate(0,8px) scale(.82);transform-origin:90% 100%}.hero-kiko .kk-say.show{transform:none}.hero-kiko .kk-say::after{left:auto;right:30px}}

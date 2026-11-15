@@ -194,10 +194,10 @@ export async function flapTo(root, text, { silent = false } = {}) {
 
 /* ---------- QR ---------- */
 export function qrSvg(text) {
-  const q = window.qrcode(0, 'M');
+  const q = window.qrcode(0, 'L');
   q.addData(text);
   q.make();
-  return q.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+  return q.createSvgTag({ cellSize: 4, margin: 4, scalable: true });
 }
 
 /* ---------- Pintu gerbong ---------- */

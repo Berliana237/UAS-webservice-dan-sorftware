@@ -49,7 +49,7 @@ function renderHeader() {
       <button class="icon-btn" id="snd" type="button" aria-pressed="${Sound.isOn()}" aria-label="Suara ${Sound.isOn() ? 'aktif' : 'mati'}" title="Suara">${Sound.isOn() ? icon.on : icon.off}</button>
       ${u ? `<button class="icon-btn" id="bell" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Notifikasi${unread ? `, ${unread} belum dibaca` : ''}" title="Notifikasi">${icon.bell}${unread ? `<span class="badge-dot">${unread > 9 ? '9+' : unread}</span>` : ''}</button>
         <button class="user-btn" id="me" type="button" aria-haspopup="menu" aria-expanded="false"><span class="avatar" aria-hidden="true">${esc(initials(u.name))}</span><span class="nm">${esc((u.name || '').split(' ')[0] || u.role)}</span>${icon.chev}</button>`
-    : `<a class="nav-a" href="/masuk" data-link>Masuk</a><a class="btn gold btn-nav" href="/daftar" data-link>Daftar</a>`}
+    : `<a class="nav-a nav-login" href="/masuk" data-link>Masuk</a><a class="btn gold btn-nav" href="/daftar" data-link>Daftar</a>`}
       <button class="icon-btn menu-burger" id="burger" type="button" aria-label="Buka menu">${icon.menu}</button>
     </div>
   </div>`;
@@ -84,7 +84,8 @@ function openPop(anchor, html, label) {
   document.body.append(el);
   const r = anchor.getBoundingClientRect();
   el.style.top = `${r.bottom + 10}px`;
-  el.style.right = `${Math.max(12, innerWidth - r.right - 4)}px`;
+  if (innerWidth <= 600) { el.style.left = '10px'; el.style.right = '10px'; el.style.width = 'auto'; el.style.maxHeight = `${innerHeight - r.bottom - 24}px`; }
+  else el.style.right = `${Math.max(12, innerWidth - r.right - 4)}px`;
   anchor.setAttribute('aria-expanded', 'true');
   popEl = el;
   setTimeout(() => { document.addEventListener('pointerdown', outside, true); document.addEventListener('keydown', escClose); }, 0);
@@ -147,7 +148,8 @@ function openDrawer() {
   d.className = 'drawer';
   d.innerHTML = `<div class="drawer-in" role="dialog" aria-modal="true" aria-label="Menu"><div class="row between"><span class="logo">${icon.mark}<span>Rangkai</span></span><button class="icon-btn" id="dclose" aria-label="Tutup menu">${icon.x}</button></div>
     <nav class="stack" style="--gap:2px;margin-top:18px">${links().map(([h, t]) => `<a class="nav-a ${isOn(h, location.pathname) ? 'on' : ''}" href="${h}" data-link>${t}</a>`).join('')}
-    <a class="nav-a" href="/privasi" data-link>Keamanan dan Privasi</a></nav></div>`;
+    <a class="nav-a" href="/privasi" data-link>Keamanan dan Privasi</a></nav>
+    ${currentUser() ? '' : '<div class="drawer-auth"><a class="btn ghost block" href="/masuk" data-link>Masuk</a><a class="btn gold block" href="/daftar" data-link>Daftar akun</a></div>'}</div>`;
   document.body.append(d);
   const close = () => d.remove();
   d.addEventListener('click', (e) => { if (e.target === d || e.target.closest('#dclose') || e.target.closest('a')) close(); });
@@ -226,4 +228,34 @@ document.addEventListener('click', (e) => {
   if (seen) return;
   await Promise.race([document.fonts?.ready, new Promise((r) => setTimeout(r, 900))]);
   setTimeout(doorsOpen, 260);
+})();
+
+/* Ponsel: Kiko menyingkir selama menggulir atau mengetik agar tidak menutupi tombol dan isian. */
+(() => {
+  const mobile = () => innerWidth <= 760;
+  let t = 0;
+  const hide = (ms) => {
+    const d = document.getElementById('dock');
+    if (!d || !mobile()) return;
+    d.classList.add('busy');
+    clearTimeout(t);
+    if (ms) t = setTimeout(() => d.classList.remove('busy'), ms);
+  };
+  addEventListener('scroll', () => hide(1400), { passive: true });
+  document.addEventListener('focusin', (e) => { if (e.target.matches('input,textarea,select')) hide(0); });
+  document.addEventListener('focusout', (e) => { if (e.target.matches('input,textarea,select')) hide(600); });
+})();
+
+/* Label kolom untuk tampilan tabel-kartu di ponsel: tiap <td> diberi data-label dari judul kolomnya. */
+(() => {
+  const label = () => document.querySelectorAll('table.tbl').forEach((t) => {
+    const heads = [...t.querySelectorAll('thead th')].map((th) => th.textContent.trim());
+    if (!heads.length) return;
+    t.querySelectorAll('tbody tr').forEach((tr) => {
+      let i = 0;
+      for (const td of tr.children) { if (!td.hasAttribute('data-label')) td.setAttribute('data-label', heads[i] || ''); i += Number(td.colSpan || 1); }
+    });
+  });
+  let q = 0;
+  new MutationObserver(() => { cancelAnimationFrame(q); q = requestAnimationFrame(label); }).observe(document.body, { childList: true, subtree: true });
 })();

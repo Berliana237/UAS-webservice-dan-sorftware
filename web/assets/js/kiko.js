@@ -531,6 +531,9 @@ export const Kiko = {
     const r = REACT[kind];
     const m = main();
     if (!r || !m) return;
+    // Ponsel: Kiko tersembunyi di tepi bawah dan hanya mengintip sebentar saat bereaksi, agar tidak menutupi konten.
+    const dock = document.getElementById('dock');
+    if (dock && innerWidth <= 760) { dock.classList.add('peek'); clearTimeout(dock.peekT); dock.peekT = setTimeout(() => dock.classList.remove('peek'), Math.max(ms || 0, 2600)); }
     m.mood(r[0], ms ?? r[2]);
     if (text) m.say(text, ms || r[2] || 3000);
     if (r[3]) Sound.play(r[3]);

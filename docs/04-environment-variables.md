@@ -59,7 +59,7 @@
 | `RATE_LOGIN_PER_MIN` | `10` | Per IP dan akun |
 | `RATE_REGISTER_PER_MIN` | `20` | Per IP |
 | `RATE_TOKEN_PER_MIN` | `120` | Per IP |
-| `RATE_LOCK_PER_MIN` | `30` | Per pengguna |
+| `RATE_LOCK_PER_MIN` | `120` | Per pengguna (memilih atau melepas satu kursi = satu permintaan) |
 | `RATE_PAYMENT_PER_MIN` | `30` | Per pengguna |
 | `RATE_GRAPHQL_PER_MIN` | `600` | Per pengguna atau IP |
 | `RATE_PUBLIC_READ_PER_MIN` | `600` | Per pengguna atau IP |

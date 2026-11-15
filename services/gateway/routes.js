@@ -86,6 +86,7 @@ const ROUTES = [
   R('GET', /^\/api\/trips\/[^/]+\/manifest$/, 'booking', { scopes: ['manifest:read'] }),
   R('POST', /^\/api\/locks$/, 'booking', { scopes: ['booking:write'], rl: 'lock', schema: 'lock', maxBody: 256 * 1024 }),
   R('GET', /^\/api\/locks\/[^/]+$/, 'booking', { scopes: ['booking:read'] }),
+  R('PUT', /^\/api\/locks\/[^/]+$/, 'booking', { scopes: ['booking:write'], rl: 'lock', schema: 'lockSeats', maxBody: 64 * 1024 }),
   R('DELETE', /^\/api\/locks\/[^/]+$/, 'booking', { scopes: ['booking:write'] }),
   R('POST', /^\/api\/bookings$/, 'booking', { scopes: ['booking:write'], rl: 'lock', schema: 'booking', maxBody: 256 * 1024 }),
   R('GET', /^\/api\/bookings$/, 'booking', { scopes: ['booking:read'] }),

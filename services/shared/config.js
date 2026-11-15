@@ -50,7 +50,7 @@ module.exports = {
   refreshTtl: num('REFRESH_TOKEN_TTL_SECONDS', 604800),
   rate: {
     global: num('RATE_GLOBAL_PER_MIN', 1200), login: num('RATE_LOGIN_PER_MIN', 10), register: num('RATE_REGISTER_PER_MIN', 20),
-    token: num('RATE_TOKEN_PER_MIN', 120), lock: num('RATE_LOCK_PER_MIN', 30), payment: num('RATE_PAYMENT_PER_MIN', 30),
+    token: num('RATE_TOKEN_PER_MIN', 120), lock: num('RATE_LOCK_PER_MIN', 120), payment: num('RATE_PAYMENT_PER_MIN', 30),
     graphql: num('RATE_GRAPHQL_PER_MIN', 600), publicRead: num('RATE_PUBLIC_READ_PER_MIN', 600),
     support: num('RATE_SUPPORT_PER_MIN', 12),
   },

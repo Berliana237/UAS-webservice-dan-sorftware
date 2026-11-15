@@ -1,6 +1,7 @@
 package id.rangkai.booking.service;
 
 import id.rangkai.booking.domain.SegmentRange;
+import java.util.regex.Pattern;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +40,19 @@ final class InMemorySeatStore implements SeatStore {
         int before = claims.size();
         claims.values().removeIf(c -> c.ownerId().equals(ownerId));
         return before - claims.size();
+    }
+
+    @Override
+    public synchronized int releaseSeatClaims(String ownerId, List<String> seats) {
+        int before = claims.size();
+        claims.entrySet().removeIf(e -> e.getValue().ownerId().equals(ownerId) && seats.contains(e.getKey().split(Pattern.quote("|"))[1]));
+        return before - claims.size();
+    }
+
+    @Override
+    public synchronized void updateLockSeats(String id, List<String> seats) {
+        LockRecord l = locks.get(id);
+        locks.put(id, new LockRecord(l.id(), l.userId(), l.tripId(), List.copyOf(seats), l.range(), l.status(), l.expiresAt(), l.createdAt()));
     }
 
     @Override

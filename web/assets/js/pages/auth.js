@@ -1,7 +1,7 @@
 /**
  * Halaman masuk dan daftar.
  * Masuk: pemandangan dari jendela kereta malam. Kiko menutup mata saat kata sandi diketik.
- * Daftar: karcis tercetak mengikuti isian, tiap kolom yang benar membuat satu lubang pukulan kondektur.
+ * Daftar: kartu akun mengikuti isian (efek cap dipertahankan), tiap kolom yang benar membuat satu lubang pukulan kondektur.
  * Berhasil: pintu gerbong menutup lalu membuka ke halaman tujuan.
  */
 import { $, $$, api, beginLogin, completeLogin, currentUser, esc, go, restoreSession, sleep, toast, roleHome } from '../core.js';
@@ -47,11 +47,11 @@ export function render(main, { url, query }) {
           <a href="/daftar${nextQ}" data-link role="tab" aria-selected="${mode === 'signup'}" class="${mode === 'signup' ? 'on' : ''}">Daftar</a>
           <i class="tab-ind"></i>
         </div>
-        <h1>${mode === 'login' ? 'Selamat datang <em>kembali.</em>' : 'Karcis pertama <em>Anda.</em>'}</h1>
-        <p class="muted">${mode === 'login' ? 'Masuk untuk melanjutkan pesanan dan melihat tiket.' : 'Isi tiga kolom ini, karcis Anda langsung dicetak.'}</p>
+        <h1>${mode === 'login' ? 'Selamat datang <em>kembali.</em>' : 'Buat akun <em>baru.</em>'}</h1>
+        <p class="muted">${mode === 'login' ? 'Masuk untuk melanjutkan pesanan dan melihat tiket.' : 'Cukup nama, email, dan kata sandi. Setelah itu Anda bisa langsung memesan tiket.'}</p>
         ${mode === 'signup' ? `
         <div class="ticket-wrap print-wrap"><div class="ticket printing" aria-hidden="true">
-          <div class="pr-top"><span class="eyebrow">Karcis penumpang</span><span class="mono pr-no">No. RK-${String(Math.floor(Math.random() * 90000) + 10000)}</span></div>
+          <div class="pr-top"><span class="eyebrow">Kartu akun</span><span class="mono pr-no">No. RK-${String(Math.floor(Math.random() * 90000) + 10000)}</span></div>
           <div class="pr-name" id="pr-name">Nama Anda</div>
           <div class="pr-mail mono" id="pr-mail">email@anda.com</div>
           <div class="holes"><i data-h="name"></i><i data-h="email"></i><i data-h="password"></i></div>
@@ -62,7 +62,7 @@ export function render(main, { url, query }) {
           <div class="af"><input id="password" name="password" type="password" autocomplete="${mode === 'login' ? 'current-password' : 'new-password'}" placeholder=" " maxlength="72"><label for="password">Kata sandi</label>
             <button class="af-eye" id="eye" type="button" aria-pressed="false" aria-label="Tampilkan kata sandi">${icon.eye}</button><small id="h-password"></small><small class="caps" id="caps" hidden>Caps Lock aktif</small></div>
           <p class="auth-err" id="err" role="alert" hidden></p>
-          <button class="btn gold block" id="submit" type="submit"><span class="btn-label">${mode === 'login' ? 'Masuk' : 'Cetak karcis saya'}</span></button>
+          <button class="btn gold block" id="submit" type="submit"><span class="btn-label">${mode === 'login' ? 'Masuk' : 'Buat akun'}</span></button>
         </form>
         ${mode === 'login' ? `<details class="demo"><summary>Akun demo untuk penguji</summary><div class="demo-grid">
           ${[['masinis', 'Masinis'], ['admin', 'Admin']].map(([r, t]) => `<button type="button" class="btn ghost sm" data-demo="${r}@rangkai.test">${t}</button>`).join('')}
@@ -135,8 +135,8 @@ export function render(main, { url, query }) {
 
   const succeed = async (user) => {
     sub.classList.add('okk');
-    $('.btn-label', sub).textContent = mode === 'login' ? `Silakan naik, ${(user.name || '').split(' ')[0]}` : 'Karcis tercetak';
-    Kiko.react('sukses', mode === 'login' ? 'Karcis sah. Silakan naik!' : 'Selamat bergabung!', 1800);
+    $('.btn-label', sub).textContent = mode === 'login' ? `Berhasil masuk, ${(user.name || '').split(' ')[0]}` : 'Akun berhasil dibuat';
+    Kiko.react('sukses', mode === 'login' ? 'Berhasil masuk. Selamat datang!' : 'Selamat bergabung!', 1800);
     if (mode === 'signup') $('.printing')?.classList.add('stamped');
     await sleep(mode === 'signup' ? 1200 : 750);
     await doorsClose();
@@ -177,7 +177,7 @@ export function render(main, { url, query }) {
       if (fields) Object.entries(fields).forEach(([k, m]) => { const h = $(`#h-${k}`); if (h) { h.textContent = m; h.parentElement.classList.add('bad'); } });
       const msg = ex.code === 'RATE_LIMITED' ? `Terlalu banyak percobaan. Coba lagi ${ex.details?.retryAfterSeconds || 60} detik lagi.` : ex.message;
       showErr(msg);
-      Kiko.react('gagal', ex.code === 'INVALID_CREDENTIALS' ? 'Hmm, karcisnya belum cocok. Coba periksa lagi.' : esc(msg));
+      Kiko.react('gagal', ex.code === 'INVALID_CREDENTIALS' ? 'Email atau kata sandi belum cocok. Coba periksa lagi.' : esc(msg));
       if (ex.code === 'NETWORK') toast(ex.message, 'err');
     }
   });

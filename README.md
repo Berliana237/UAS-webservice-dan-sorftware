@@ -113,7 +113,7 @@ Spesifikasi lengkap: [docs/openapi.yaml](docs/openapi.yaml) dan [docs/schema.gra
 | Jadwal | `GET /api/stations`, `GET /api/trains`, `GET /api/pricing`, `GET /api/schedules?from&to&date&train`, `GET /api/trips/{id}`, `GET /api/trips/{id}/seats` | Publik |
 | GraphQL | `POST /graphql`, `GET /graphql/schema` | Publik, mutation butuh scope |
 | Kursi | `GET /api/trips/{id}/availability`, `GET /api/trips/{id}/seats/stream` (SSE) | Publik |
-| Kursi | `POST /api/locks`, `GET /api/locks/{id}`, `DELETE /api/locks/{id}` | `booking:*` |
+| Kursi | `POST /api/locks`, `GET /api/locks/{id}`, `PUT /api/locks/{id}` (ubah kursi dalam lock), `DELETE /api/locks/{id}` | `booking:*` |
 | Pesanan | `POST /api/bookings`, `GET /api/bookings`, `GET /api/bookings/{id}`, `GET .../refund-preview`, `POST .../cancel` | `booking:*` |
 | Pembayaran | `POST /api/payments`, `GET /api/payments?bookingId=`, `GET /api/payments/{id}`, `POST /api/payments/{id}/proof`, `GET /api/payments/proofs/{id}/file`, `POST /api/mock-gateway/checkout/{token}/pay` | `payment:write` / token |
 | QRIS (ponsel) | `GET /api/qris/{token}`, `POST /api/qris/{token}/pay` | Publik, token checkout acak |
@@ -138,6 +138,8 @@ Spesifikasi lengkap: [docs/openapi.yaml](docs/openapi.yaml) dan [docs/schema.gra
 - **Refund:** 90% (>= 72 jam sebelum berangkat), 75% (>= 24 jam), 50% (>= 3 jam), 0% (< 3 jam). Perjalanan dibatalkan admin: 100%.
 
 ## Pembaruan kursi real-time (SSE)
+
+**Alur tahan kursi.** Begitu pelanggan menekan kursi, aplikasi langsung menguncinya di server (kursi pertama `POST /api/locks`, kursi berikutnya `PUT /api/locks/{id}`), dengan TTL 10 menit. Melepas pilihan atau meninggalkan halaman melepas kursinya. Semua perangkat lain yang membuka peta kursi yang sama melihat perubahan dalam hitungan detik. Status kursi di peta hanya empat: **Kosong**, **Pilihan Anda**, **Ditahan** (dikunci pengguna lain, tidak bisa ditekan), dan **Terisi**. Bila dua orang menekan kursi yang sama bersamaan, hanya satu yang berhasil (409 `SEAT_CONFLICT` untuk yang lain).
 
 `GET /api/trips/{tripId}/seats/stream` (publik, tanpa data pribadi). Server mengirim `retry: 2000`, lalu event `seat` dengan `id: <seq>` dan data `{"seq":41,"seats":["EKS1-1A"],"fromIndex":0,"toIndex":3,"status":"LOCKED"}`. `status` bernilai `LOCKED`, `BOOKED`, atau `AVAILABLE`. Komentar `: detak` dikirim tiap 15 detik, dan koneksi ditutup setelah 15 menit. Klien mengambil ulang peta kursi setelah menerima event, menyambung ulang otomatis, dan polling tiap 8 detik selama terputus.
 

@@ -20,6 +20,12 @@ public interface SeatStore {
 
     int releaseClaims(String ownerId);
 
+    /** Melepas klaim sebagian kursi milik satu pemilik (dipakai saat pengguna membatalkan pilihan satu kursi). */
+    int releaseSeatClaims(String ownerId, List<String> seats);
+
+    /** Mengganti daftar kursi pada catatan lock. */
+    void updateLockSeats(String id, List<String> seats);
+
     int countActiveLocks(String userId, String tripId, long now);
 
     void saveLock(LockRecord lock);

@@ -18,6 +18,10 @@ const schemas = {
     type: 'object', required: ['auth_request', 'email', 'password'], additionalProperties: false,
     properties: { auth_request: { type: 'string', maxLength: 128 }, email: { type: 'string', maxLength: 120 }, password: { type: 'string', maxLength: 128 } },
   },
+  lockSeats: {
+    type: 'object', required: ['seats'], additionalProperties: false,
+    properties: { seats: { type: 'array', minItems: 1, maxItems: 648, uniqueItems: true, items: seatId } },
+  },
   lock: {
     type: 'object', required: ['tripId', 'from', 'to', 'seats'], additionalProperties: false,
     properties: {

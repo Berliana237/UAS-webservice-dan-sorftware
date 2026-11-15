@@ -12,7 +12,8 @@
 .row.between{justify-content:space-between}
 .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-@media (max-width:860px){.grid-2,.grid-3{grid-template-columns:1fr}}
+@media (max-width:860px){.grid-2,.grid-3{grid-template-columns:minmax(0,1fr)}}
+.grid-2>*,.grid-3>*,.card{min-width:0}
 .divider{height:1px;background:var(--line);border:0;margin:6px 0}
 .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px 22px;margin:0}
 .kv dt{font-size:var(--fs-xs);font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ivory-dim)}
@@ -208,3 +209,26 @@ input.in[readonly]{color:var(--ivory-dim);background:transparent;border-style:da
 .toc a.on{border-color:var(--brass);color:var(--brass-hi)}
 /* Panel admin dan masinis tanpa sidebar: navigasi hanya di header. */
 .shell.solo{grid-template-columns:minmax(0,1fr)}
+
+/* ---------- Ponsel: tabel menjadi daftar kartu (label kolom dari thead, diisi main.js) ---------- */
+.tbl-wrap{-webkit-overflow-scrolling:touch;max-width:100%}
+.spark{max-width:100%;overflow-x:auto}
+@media (max-width:640px){
+  .tbl-wrap{border:0;background:none;overflow:visible}
+  .tbl,.tbl tbody,.tbl tr,.tbl td{display:block;width:100%}
+  .tbl thead{display:none}
+  .tbl tbody tr{margin:0 0 10px;padding:6px 4px;border:1px solid var(--line);border-radius:12px;background:rgba(5,10,8,.35)}
+  .tbl td{position:relative;padding:7px 12px 7px calc(36% + 14px);min-height:32px;border-top:0;text-align:left!important;overflow-wrap:anywhere}
+  .tbl td::before{content:attr(data-label);position:absolute;left:12px;top:9px;width:calc(36% - 8px);font-size:.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ivory-dim)}
+  .tbl td[data-label=""],.tbl td[colspan]{padding-left:12px}
+  .tbl td[data-label=""]::before{display:none}
+  .tbl td.acts{width:100%;white-space:normal}
+  .tbl td.acts>*{justify-self:start}
+  .tbl td[colspan]::before{display:none}
+}
+@media (max-width:640px){
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .stat{padding:12px 13px;gap:2px}
+  .stat b{font-size:1.35rem;overflow-wrap:anywhere}
+  .stat small,.stat span{font-size:.76rem}
+}

@@ -170,3 +170,14 @@ body[data-page=auth] #dock,body[data-page=home] #dock{display:none}
 body.kk-hit #main,body.kk-hit #top{animation:kkHitShake .32s ease-out}
 @keyframes kkHitShake{20%{transform:translate(-6px,3px)}40%{transform:translate(5px,-2px)}60%{transform:translate(-3px,1px)}80%{transform:translate(2px,0)}}
 @media (prefers-reduced-motion:reduce){.kk-aim{transition:none}.kiko.firing .kk-flash{animation:none;opacity:1}}
+
+/* Ponsel: Kiko mengecil, memberi ruang di bawah halaman, dan menyingkir saat pengguna menggulir atau mengetik. */
+@media (max-width:760px){
+  #dock{--dock:62px;right:6px}
+  #dock .kk-say{max-width:min(220px,62vw);font-size:.82rem;padding:8px 12px}
+  #dock .kk-pat{display:none}
+  #dock{transform:translateY(115%);opacity:0}
+  #dock.peek{transform:none;opacity:1}
+  #dock.busy{transform:translateY(120%);opacity:0;pointer-events:none}
+  #main{padding-bottom:24px}
+}

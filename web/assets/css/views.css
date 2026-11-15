@@ -91,7 +91,7 @@
 .trip-train h3 small{font:400 .78rem var(--f-mono);margin-left:6px}
 
 /* ---------- Denah kursi ---------- */
-.consist-wrap{position:relative;display:flex;align-items:center;gap:12px;margin:4px 0 18px;overflow-x:auto;padding:4px 2px 8px}
+.consist-wrap{position:relative;display:flex;align-items:center;gap:12px;margin:4px 0 18px;overflow-x:auto;padding:14px 10px 10px 2px}
 .consist{display:flex;align-items:flex-end;gap:5px}
 .car-tab{position:relative;display:grid;justify-items:center;gap:1px;min-width:54px;height:46px;padding:5px 6px 4px;border:1px solid var(--line-strong);border-radius:10px 10px 6px 6px;background:var(--moss);color:var(--ivory);transition:transform .3s var(--spring),border-color .2s,background .2s}
 .car-tab::after{content:"";position:absolute;bottom:-5px;left:10px;right:10px;height:4px;background:radial-gradient(circle,#0a0f0d 2.2px,transparent 2.6px) 0 0/12px 4px repeat-x}
@@ -157,7 +157,7 @@
 .qris-brand span{font-size:.72rem;font-weight:600;color:var(--ink-mute)}
 .qris-code{position:relative;margin:14px 0;overflow:hidden;border-radius:6px}
 .qris-code svg{width:100%;height:auto}
-.scanline{position:absolute;left:0;right:0;height:22%;background:linear-gradient(180deg,transparent,rgba(200,162,94,.35),transparent);animation:scan 2.6s ease-in-out infinite}
+.scanline{position:absolute;left:0;right:0;height:22%;background:linear-gradient(180deg,transparent,rgba(200,162,94,.16),transparent);animation:scan 2.6s ease-in-out infinite}
 @keyframes scan{0%,100%{top:-22%}50%{top:100%}}
 .qris-amt{display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px dashed #d8d2c0}
 .qris-amt span{font-size:.8rem;color:var(--ink-mute)}

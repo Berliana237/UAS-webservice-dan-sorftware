@@ -61,6 +61,14 @@ public final class Api {
             var u = ctx.user("booking:read");
             ctx.json(200, lockView(locks.get(ctx.param("id"), u.sub())));
         });
+        app.route("PUT", "/api/locks/{id}", ctx -> {
+            var u = ctx.user("booking:write");
+            List<String> seats = new ArrayList<>();
+            ctx.body().path("seats").forEach(s -> seats.add(s.asText()));
+            LockRecord cur = locks.get(ctx.param("id"), u.sub());
+            catalog.get(cur.tripId()).assertSeatsExist(seats);
+            ctx.json(200, lockView(locks.updateSeats(ctx.param("id"), u.sub(), seats)));
+        });
         app.route("DELETE", "/api/locks/{id}", ctx -> {
             var u = ctx.user("booking:write");
             locks.release(ctx.param("id"), u.sub());

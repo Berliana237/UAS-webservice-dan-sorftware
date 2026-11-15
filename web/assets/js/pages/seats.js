@@ -14,7 +14,7 @@ const Q = `query($id:ID!,$from:String!,$to:String!){
     coaches{adultFare available coach{code label seatClass rows letters aisleAfter rowFacing} seats{id row letter facing status segments{index status}}}}}`;
 const REFRESH = `query($id:ID!,$from:String!,$to:String!){seatMap(tripId:$id,from:$from,to:$to){available coaches{available seats{id status segments{index status}}}}}`;
 const CLASS = { EKONOMI: 'Ekonomi', EKSEKUTIF: 'Eksekutif', LUXURY: 'Luxury' };
-const STATUS = { AVAILABLE: 'kosong', LOCKED: 'sedang ditahan penumpang lain', BOOKED: 'sudah terisi' };
+const STATUS = { AVAILABLE: 'kosong', LOCKED: 'ditahan', BOOKED: 'terisi' };
 const FACING = { F: 'menghadap arah laju', B: 'membelakangi arah laju' };
 
 export function render(main, { params, query }) {
@@ -34,6 +34,43 @@ export function render(main, { params, query }) {
   let left = false;
   let idemKey = uuid();
   const selected = new Set(flow.get(intentKey) || []);
+  // Kursi dikunci di server begitu dipilih (bukan saat tombol ditekan), sehingga perangkat lain langsung melihatnya "Ditahan".
+  // Satu lock per perjalanan dan ruas; pilihan berikutnya mengubah isi lock itu lewat PUT /api/locks/{id}.
+  const lockKey = `lock:${tripId}:${from}:${to}`;
+  let lockId = flow.get(lockKey) || null;
+  let mine = new Set();
+  let chain = Promise.resolve();
+  const canLock = () => !!currentUser() && hasScope('booking:write');
+  const setLock = (l) => {
+    lockId = l?.id || null; mine = new Set(l?.seats || []);
+    if (lockId) flow.set(lockKey, lockId); else flow.del(lockKey);
+  };
+  const syncLock = () => (chain = chain.then(() => doSync(0)).catch(() => {}));
+  async function doSync(depth) {
+    if (!canLock() || depth > 3) return;
+    const want = [...selected];
+    if (want.length === mine.size && want.every((x) => mine.has(x)) && (lockId || !want.length)) return;
+    try {
+      if (!want.length) { if (lockId) await api(`/api/locks/${encodeURIComponent(lockId)}`, { method: 'DELETE' }).catch(() => {}); setLock(null); }
+      else if (lockId) setLock(await api(`/api/locks/${encodeURIComponent(lockId)}`, { method: 'PUT', body: { seats: want } }));
+      else setLock(await api('/api/locks', { method: 'POST', idem: uuid(), body: { tripId, from, to, seats: want } }));
+    } catch (e) {
+      if (e.code === 'LOCK_NOT_ACTIVE' || e.code === 'LOCK_NOT_FOUND') { setLock(null); return doSync(depth + 1); }
+      if (e.code === 'SEAT_CONFLICT') {
+        const lost = [...new Set((e.details?.conflicts || []).map((c) => c.seatId))];
+        lost.forEach((x) => selected.delete(x));
+        persist();
+        toast(`Kursi ${lost.map((x) => x.split('-')[1]).join(', ')} baru saja ditahan penumpang lain.`, 'warn');
+        Kiko.react('gagal', 'Yah, keduluan! Kursi lain masih banyak, kok.', 3000);
+        await refreshMap(true).catch(() => {});
+        return doSync(depth + 1);
+      }
+      // Gagal lain (mis. rate limit): pilihan dikembalikan ke kursi yang benar-benar terkunci di server.
+      selected.clear(); mine.forEach((x) => selected.add(x)); persist();
+      toast(e.code === 'RATE_LIMITED' ? 'Terlalu cepat. Tunggu sebentar lalu pilih lagi.' : e.message, 'warn');
+    }
+    if (map && !left) { paintSeats(); summary(); }
+  }
 
   main.innerHTML = `<div class="page wrap seats-page">
     <div class="page-head no-pad">${steps(0)}<a class="btn link" href="/cari" id="back">Kembali ke hasil</a></div>
@@ -49,11 +86,10 @@ export function render(main, { params, query }) {
 
   function seatBtn(s, c) {
     const sel = selected.has(s.id);
-    const partial = s.status === 'AVAILABLE' && s.segments.length > 0;
     const state = sel ? 'sel' : s.status.toLowerCase();
     const off = s.status !== 'AVAILABLE' && !sel;
-    return `<button type="button" class="seat ${state} ${partial ? 'part' : ''} face-${s.facing}" data-id="${s.id}" ${off ? 'disabled' : ''} aria-pressed="${sel}"
-      aria-label="Kursi ${s.row}${s.letter}, ${CLASS[c.coach.seatClass]}, ${FACING[s.facing]}, ${sel ? 'dipilih' : STATUS[s.status]}${partial ? ', terpakai di ruas lain' : ''}"><span>${s.row}${s.letter}</span></button>`;
+    return `<button type="button" class="seat ${state} face-${s.facing}" data-id="${s.id}" ${off ? 'disabled' : ''} aria-pressed="${sel}"
+      aria-label="Kursi ${s.row}${s.letter}, ${CLASS[c.coach.seatClass]}, ${FACING[s.facing]}, ${sel ? 'pilihan Anda' : STATUS[s.status]}"><span>${s.row}${s.letter}</span></button>`;
   }
 
   /** Satu kolom = satu baris kursi. Huruf sebelum lorong di atas, sesudahnya di bawah. */
@@ -107,8 +143,8 @@ export function render(main, { params, query }) {
         <div class="sum-total"><span>Perkiraan total</span><b class="mono">${rupiah(total())}</b></div>
         <p class="sum-note muted">Harga dewasa. Lansia otomatis mendapat potongan ${map.seniorDiscountPercent}% saat data penumpang diisi.</p>
         <p class="alert" id="sum-err" role="alert" hidden></p>
-        <button class="btn pri block" id="hold" ${n === 0 ? 'disabled' : ''}>${n === 0 ? 'Pilih kursi dulu' : `Tahan ${n} kursi`}</button>
-        <p class="sum-foot muted">Kursi aman selama 10 menit selagi Anda mengisi data dan membayar.</p>
+        <button class="btn pri block" id="hold" ${n === 0 ? 'disabled' : ''}>${n === 0 ? 'Pilih kursi dulu' : `Lanjut isi data (${n} kursi)`}</button>
+        <p class="sum-foot muted">${n && lockId ? "Kursi pilihan Anda sudah ditahan 10 menit dan terlihat \"Ditahan\" bagi penumpang lain." : "Kursi langsung ditahan 10 menit begitu Anda memilihnya (perlu masuk sebagai pelanggan)."}</p>
       </div>`;
     $('#hold').addEventListener('click', hold);
   }
@@ -130,8 +166,7 @@ export function render(main, { params, query }) {
           <div class="plan-wrap"><div id="plan"></div></div>
           <div class="seat-info" id="seat-info" aria-live="polite"><span class="muted">Arahkan atau fokuskan kursi untuk melihat status tiap ruas.</span></div>
           <ul class="legend" aria-label="Keterangan kursi">
-            <li><i class="seat-k available"></i>Kosong</li><li><i class="seat-k sel"></i>Pilihan Anda</li><li><i class="seat-k locked"></i>Ditahan orang lain</li><li><i class="seat-k booked"></i>Terisi</li>
-            <li><i class="seat-k available part"></i>Terpakai di ruas lain, kosong di ruas Anda</li>
+            <li><i class="seat-k available"></i>Kosong</li><li><i class="seat-k sel"></i>Pilihan Anda</li><li><i class="seat-k locked"></i>Ditahan</li><li><i class="seat-k booked"></i>Terisi</li>
             <li class="live" id="live"><i></i><span>Menghubungkan...</span></li>
           </ul>
         </div>
@@ -167,14 +202,8 @@ export function render(main, { params, query }) {
   function showInfo(id) {
     const hit = seatById(id);
     if (!hit) return;
-    const n = trip.stops.length - 1;
-    const bars = Array.from({ length: n }, (_, i) => {
-      const seg = hit.seat.segments.find((s) => s.index === i);
-      const mine = i >= map.fromIndex && i < map.toIndex;
-      return `<i class="${seg ? seg.status.toLowerCase() : 'free'} ${mine ? 'mine' : ''}" title="${esc(trip.stops[i].station.name)} ke ${esc(trip.stops[i + 1].station.name)}"></i>`;
-    }).join('');
-    const st = selected.has(id) ? 'Pilihan Anda' : hit.seat.status === 'AVAILABLE' ? (hit.seat.segments.length ? 'Kosong di ruas Anda' : 'Kosong di seluruh rute') : hit.seat.status === 'LOCKED' ? 'Sedang ditahan penumpang lain' : 'Terisi pada ruas ini';
-    $('#seat-info').innerHTML = `<b class="mono">${esc(hit.seat.row)}${esc(hit.seat.letter)}</b><span class="seg-bar" aria-hidden="true">${bars}</span><span>${st}</span><span class="muted">· ${FACING[hit.seat.facing]}</span>`;
+    const st = selected.has(id) ? 'Pilihan Anda' : { AVAILABLE: 'Kosong', LOCKED: 'Ditahan', BOOKED: 'Terisi' }[hit.seat.status];
+    $('#seat-info').innerHTML = `<b class="mono">${esc(hit.seat.row)}${esc(hit.seat.letter)}</b><span>${st}</span><span class="muted">· ${FACING[hit.seat.facing]}</span>`;
   }
 
   function pick(id, btn) {
@@ -185,6 +214,7 @@ export function render(main, { params, query }) {
     Kiko.react('pilih', null, 1400);
     btn?.classList.add('pop');
     paintSeats();
+    syncLock();
     $(`.seat[data-id="${id}"]`)?.focus();
   }
   function unpick(id) {
@@ -193,6 +223,7 @@ export function render(main, { params, query }) {
     idemKey = uuid();
     Sound.play('unpick');
     paintSeats();
+    syncLock();
   }
   function onSeat(e) {
     const b = e.target.closest('.seat');
@@ -230,8 +261,11 @@ export function render(main, { params, query }) {
     Kiko.react('mikir');
     holding = true;
     try {
-      const lock = await api('/api/locks', { method: 'POST', idem: idemKey, body: { tripId, from, to, seats: [...selected] } });
+      await syncLock();
+      if (!lockId || !mine.size) throw Object.assign(new Error('Kursi belum berhasil ditahan. Pilih ulang kursi Anda.'), { code: 'NO_LOCK' });
+      const lock = { id: lockId };
       flow.del(intentKey);
+      flow.del(lockKey);
       Sound.play('lock');
       Kiko.react('bangga', 'Kursi terkunci! Isi data penumpang, ya.', 2200);
       go(`/pesanan/${lock.id}`);
@@ -257,8 +291,8 @@ export function render(main, { params, query }) {
     }
   }
 
-  async function refreshMap() {
-    if (holding || left) return;
+  async function refreshMap(force) {
+    if ((holding && !force) || left) return;
     const { seatMap } = await gql(REFRESH, { id: tripId, from, to });
     if (holding || left) return;
     const lost = [];
@@ -268,7 +302,8 @@ export function render(main, { params, query }) {
         const cur = map.coaches[i].seats[j];
         cur.status = s.status;
         cur.segments = s.segments;
-        if (selected.has(s.id) && s.status !== 'AVAILABLE') lost.push(s.id);
+        // Kursi milik lock sendiri tampil LOCKED di server; hanya pilihan yang belum dikunci (tamu) yang bisa "hilang".
+        if (selected.has(s.id) && s.status !== 'AVAILABLE' && !mine.has(s.id) && !canLock()) lost.push(s.id);
       });
     });
     map.available = seatMap.available;
@@ -299,12 +334,18 @@ export function render(main, { params, query }) {
     pollTimer = setInterval(() => { if (!document.hidden && es.readyState !== 1) refreshMap().catch(() => {}); }, 8000);
   }
 
-  gql(Q, { id: tripId, from, to }).then((d) => {
+  const restore = restoreSession().catch(() => {}).then(() => (lockId && canLock() ? api(`/api/locks/${encodeURIComponent(lockId)}`).then((l) => {
+    if (l.status === 'ACTIVE' && l.expiresAt > Date.now() && l.tripId === tripId) { setLock(l); selected.clear(); l.seats.forEach((x) => selected.add(x)); } else setLock(null);
+  }).catch(() => setLock(null)) : null));
+
+  restore.then(() => gql(Q, { id: tripId, from, to })).then((d) => {
     if (!main.contains($('#body'))) return;
     if (!d.trip) throw new Error('Perjalanan tidak ditemukan.');
     trip = d.trip;
     map = d.seatMap;
-    for (const id of [...selected]) if (seatById(id)?.seat.status !== 'AVAILABLE') selected.delete(id);
+    for (const id of [...selected]) if (seatById(id)?.seat.status !== 'AVAILABLE' && !mine.has(id)) selected.delete(id);
+    persist();
+    syncLock();
     const firstSel = [...selected][0];
     coachIdx = firstSel ? Math.max(0, map.coaches.findIndex((c) => firstSel.startsWith(`${c.coach.code}-`))) : Math.max(0, map.coaches.findIndex((c) => c.available > 0));
     layout();
@@ -316,5 +357,9 @@ export function render(main, { params, query }) {
     Kiko.react('gagal');
   });
 
-  return () => { left = true; es?.close(); clearTimeout(debounce); clearInterval(pollTimer); };
+  return () => {
+    left = true; es?.close(); clearTimeout(debounce); clearInterval(pollTimer);
+    // Meninggalkan halaman tanpa lanjut ke data penumpang: kursi dilepas agar langsung tersedia lagi bagi orang lain.
+    if (!holding && lockId) { const id = lockId; chain.then(() => api(`/api/locks/${encodeURIComponent(id)}`, { method: 'DELETE' })).catch(() => {}); setLock(null); flow.del(intentKey); }
+  };
 }

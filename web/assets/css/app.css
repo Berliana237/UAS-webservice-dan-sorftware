@@ -253,3 +253,16 @@ input[type=date]::-webkit-calendar-picker-indicator:hover,input[type=time]::-web
 @media print{#top,#dock,#toasts,#curtain,.no-print{display:none!important}body{background:#fff}.page{padding:0}}
 
 #curtain.instant .door,#curtain.instant .curtain-mark{transition:none}
+
+/* ---------- Responsif header dan panel (ponsel/tablet) ---------- */
+.drawer-auth{display:grid;gap:10px;margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+.popover{max-width:calc(100vw - 20px);overflow:auto}
+@media (max-width:600px){
+  .bar{gap:8px;height:64px}
+  .nav-side{gap:2px;min-width:0}
+  .nav-login{display:none}
+  .btn-nav{min-height:36px;padding:0 14px;font-size:.88rem}
+  .popover .pop-list{max-height:60vh;overflow:auto}
+}
+@media (max-width:360px){.btn-nav{display:none}.logo{font-size:1.2rem}}
+.pop-empty svg{width:40px;height:40px;flex:none;margin:0 auto 6px;display:block;opacity:.5}

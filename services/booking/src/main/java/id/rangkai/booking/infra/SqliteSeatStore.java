@@ -47,6 +47,18 @@ public final class SqliteSeatStore implements SeatStore {
     }
 
     @Override
+    public int releaseSeatClaims(String ownerId, List<String> seats) {
+        int n = 0;
+        for (String seat : seats) n += db.update("DELETE FROM seat_claims WHERE owner_id=? AND seat_id=?", ownerId, seat);
+        return n;
+    }
+
+    @Override
+    public void updateLockSeats(String id, List<String> seats) {
+        db.update("UPDATE seat_locks SET seats=? WHERE id=?", toJson(seats), id);
+    }
+
+    @Override
     public int countActiveLocks(String userId, String tripId, long now) {
         return (int) Db.num(db.one("SELECT COUNT(*) c FROM seat_locks WHERE user_id=? AND trip_id=? AND status='ACTIVE' AND expires_at>?", userId, tripId, now).orElseThrow(), "c");
     }

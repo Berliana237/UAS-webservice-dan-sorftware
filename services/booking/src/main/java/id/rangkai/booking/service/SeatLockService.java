@@ -74,6 +74,34 @@ public class SeatLockService {
         });
     }
 
+    /**
+     * Mengubah kursi dalam lock aktif secara atomik: kursi baru diklaim (gagal seluruhnya bila ada konflik),
+     * kursi yang tidak dipilih lagi dilepas. TTL tidak diperpanjang agar kursi tidak bisa ditahan tanpa batas.
+     */
+    public LockRecord updateSeats(String lockId, String userId, List<String> seats) {
+        LockPolicy.checkSeats(seats);
+        return tx.run(() -> {
+            long now = clock.getAsLong();
+            LockRecord lock = get(lockId, userId);
+            if (!ACTIVE.equals(lock.status()) || lock.expiresAt() <= now) {
+                throw new DomainException(409, "LOCK_NOT_ACTIVE", "Penahanan ini sudah tidak aktif.", Map.of("status", lock.status()));
+            }
+            List<String> added = seats.stream().filter(s -> !lock.seats().contains(s)).toList();
+            List<String> removed = lock.seats().stream().filter(s -> !seats.contains(s)).toList();
+            if (!added.isEmpty()) {
+                List<SeatConflict> conflicts = store.tryClaim(lock.tripId(), added, lock.range(), lockId, lock.expiresAt(), now);
+                if (!conflicts.isEmpty()) {
+                    throw new DomainException(409, "SEAT_CONFLICT", "Kursi sudah diambil penumpang lain pada ruas ini.", Map.of("conflicts", conflicts));
+                }
+            }
+            if (!removed.isEmpty()) store.releaseSeatClaims(lockId, removed);
+            store.updateLockSeats(lockId, seats);
+            if (!added.isEmpty()) events.seatsChanged(lock.tripId(), added, lock.range(), "LOCKED");
+            if (!removed.isEmpty()) events.seatsChanged(lock.tripId(), removed, lock.range(), "AVAILABLE");
+            return new LockRecord(lock.id(), lock.userId(), lock.tripId(), List.copyOf(seats), lock.range(), lock.status(), lock.expiresAt(), lock.createdAt());
+        });
+    }
+
     /** Melepas lock yang melewati TTL. Aman dijalankan bersamaan oleh banyak instance. */
     public List<LockRecord> expireDue() {
         return tx.run(() -> {
