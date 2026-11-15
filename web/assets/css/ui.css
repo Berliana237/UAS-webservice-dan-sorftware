@@ -232,3 +232,14 @@ input.in[readonly]{color:var(--ivory-dim);background:transparent;border-style:da
   .stat b{font-size:1.35rem;overflow-wrap:anywhere}
   .stat small,.stat span{font-size:.76rem}
 }
+/* Revisi: jarak antar widget dasbor admin/masinis, grafik pendapatan mengisi kartu, filter status */
+.duty + .stats,.stats + .grid-2,.stats + .card,.grid-2 + .grid-2,.grid-2 + .card{margin-top:18px}
+.grid-2{gap:18px}
+.card:has(> .spark){display:flex;flex-direction:column}
+.card > .spark{flex:1;height:auto;min-height:200px}
+.st-filter{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.st-chip{padding:5px 11px;border:1px solid var(--line-strong);border-radius:999px;background:transparent;color:var(--ivory-dim);font-size:.8rem;cursor:pointer}
+.st-chip.on{background:var(--brass-hi);border-color:var(--brass-hi);color:#1c1608}
+.st-chip small{opacity:.7}
+.day-list li.done,.tbl tr.done{opacity:.6}
+.tbl tr.sep-row td{padding-top:18px;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ivory-dim)}

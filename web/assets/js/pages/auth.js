@@ -66,7 +66,7 @@ export function render(main, { url, query }) {
         </form>
         ${mode === 'login' ? `<details class="demo"><summary>Akun demo untuk penguji</summary><div class="demo-grid">
           ${[['masinis', 'Masinis'], ['admin', 'Admin']].map(([r, t]) => `<button type="button" class="btn ghost sm" data-demo="${r}@rangkai.test">${t}</button>`).join('')}
-          </div><p class="muted">Tombol ini mengisi email. Kata sandi demo ada di README.</p></details>` : ''}
+          </div><p class="muted">Tombol ini mengisi email dan kata sandi demo. Tinggal tekan Masuk.</p></details>` : ''}
       </div>
     </div>
   </section>`;
@@ -126,7 +126,7 @@ export function render(main, { url, query }) {
     if (show) { kiko.peek(false); kiko.mood('wink', 1500); kiko.say('Saya tidak mengintip, kok.', 1800); } else if (document.activeElement === pw) kiko.peek(true);
     pw.focus();
   });
-  $$('[data-demo]', main).forEach((b) => b.addEventListener('click', () => { $('#email').value = b.dataset.demo; check($('#email'), false); pw.focus(); }));
+  $$('[data-demo]', main).forEach((b) => b.addEventListener('click', () => { $('#email').value = b.dataset.demo; check($('#email'), false); pw.value = 'Rangkai2026!'; check(pw, false); $('#submit').focus(); }));
 
   /* Tahap PKCE dimulai lebih dulu supaya tombol masuk langsung siap */
   let flowState = null;

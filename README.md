@@ -18,11 +18,11 @@ Database SQLite tiap service tersimpan di volume persisten, sehingga data tidak 
 
 | NRP | Nama | Web Service | Software Testing |
 |---|---|---|---|
-| 5803024004 | Jap Robertus Kurniawan Setiabudi | 27% | 27% |
-| 5803024005 | Daniel | 27% | 27% |
-| 5803024015 | Berliana Az Zahra Tristianti | 26% | 28% |
-| 5803024003 | Calvin Liu Victory | 20% | tidak mengambil |
-| 5803024016 | Evander Doxa Widiyanto | tidak mengambil | 18% |
+| 5803024004 | Jap Robertus Kurniawan Setiabudi | 27% | 25% |
+| 5803024005 | Daniel | 26% | 26% |
+| 5803024015 | Berliana Az Zahra Tristianti | 25% | 28% |
+| 5803024003 | Calvin Liu Victory | 22% | tidak mengambil |
+| 5803024016 | Evander Doxa Widiyanto | tidak mengambil | 21% |
 
 Calvin hanya mengambil Web Service dan Evander hanya mengambil Software Testing.
 

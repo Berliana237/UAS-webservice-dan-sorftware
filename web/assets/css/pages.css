@@ -438,3 +438,21 @@ form.shake{animation:shake .42s ease-in-out}
   .hero-kiko .kk-say{display:none}
 }
 @media (max-width:900px){.hero-kiko .kk-say{left:auto;right:0;transform:translate(0,8px) scale(.82);transform-origin:90% 100%}.hero-kiko .kk-say.show{transform:none}.hero-kiko .kk-say::after{left:auto;right:30px}}
+
+/* ---------- Tiket: QR bisa ditekan, lembar kode tiket, cetak hanya tiket ---------- */
+button.bp-qr{padding:0;border:0;background:none;cursor:zoom-in;border-radius:6px}
+button.bp-qr:focus-visible{outline:2px solid var(--brass-hi);outline-offset:3px}
+.bp-modal{position:fixed;inset:0;z-index:130;display:grid;place-items:center;padding:16px;background:rgba(5,10,8,.72);backdrop-filter:blur(3px)}
+.bp-modal-in{display:grid;gap:14px;justify-items:center;width:min(640px,100%);max-height:calc(100dvh - 32px);overflow:auto}
+.bp-modal-in .bp-wrap{width:100%}
+.bp-codes .bp-meta{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
+.bp-wide{grid-column:1/-1}
+.bp-big{font-size:1.15rem;font-weight:700;letter-spacing:.04em;overflow-wrap:anywhere}
+@media print{
+  body.print-tickets{background:#fff!important}
+  body.print-tickets *{visibility:hidden!important}
+  body.print-tickets .bp-list,body.print-tickets .bp-list *{visibility:visible!important}
+  body.print-tickets .bp-list{position:absolute;left:0;top:0;width:100%;margin:0}
+  body.print-tickets .bp-wrap{break-inside:avoid;page-break-inside:avoid;margin:0 0 12px;opacity:1!important;transform:none!important;animation:none!important}
+  body.print-tickets .bp-list *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}

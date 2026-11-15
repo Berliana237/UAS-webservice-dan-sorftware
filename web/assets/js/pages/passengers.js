@@ -12,11 +12,11 @@ const TRIP = `query($id:ID!,$from:String!,$to:String!){trip(id:$id){trainName tr
   seatMap(tripId:$id,from:$from,to:$to){seniorDiscountPercent coaches{adultFare coach{code label seatClass}}}}`;
 const CLASS = { EKONOMI: 'Ekonomi', EKSEKUTIF: 'Eksekutif', LUXURY: 'Luxury' };
 
-function card(seat, i, coach) {
+function card(seat, i, coach, total = 1) {
   const p = `p${i}`;
   return `<fieldset class="ticket-wrap pax reveal" style="--i:${i}" data-i="${i}"><div class="ticket pax-card" style="--n:66px">
     <legend class="pax-head"><span class="pax-seat mono">${esc(seat.split('-')[1])}</span><span><b>Penumpang ${i + 1}${i === 0 ? ' <small class="muted">(pemesan)</small>' : ''}</b><small class="muted">${esc(coach?.coach.label || seat.split('-')[0])} · ${CLASS[coach?.coach.seatClass] || ''}</small></span>
-      <span class="pax-type" data-type aria-live="polite"><span class="chip mute">Isi usia</span></span><b class="pax-fare mono" data-fare>${rupiah(coach?.adultFare)}</b></legend>
+      <span class="pax-type" data-type aria-live="polite"><span class="chip mute">Isi usia</span></span><b class="pax-fare mono" data-fare>${rupiah(coach?.adultFare)}</b>${total > 1 ? `<button type="button" class="btn link sm pax-drop" data-drop="${esc(seat)}">Lepas kursi ini</button>` : ''}</legend>
     <div class="perf"></div>
     <div class="pax-grid">
       <div class="field wide"><label for="${p}-name">Nama sesuai identitas</label><input class="input" id="${p}-name" data-k="name" autocomplete="${i === 0 ? 'name' : 'off'}" maxlength="80"><small class="hint"></small></div>
@@ -84,9 +84,9 @@ export function render(main, { params }) {
           <div class="page-title"><h1 class="h-sm">Siapa yang <em>berangkat?</em></h1><p class="sub">${esc(trip.trainName)} · ${esc(a.station.name)} ke ${esc(b.station.name)}</p></div>
           <div class="seat-route">${routeStrip(trip.stops, lock.fromIndex, lock.toIndex, { compact: true })}</div>
           ${profile.name ? `<p class="autofill-note">${profile.nik || profile.birthDate || profile.phone ? 'Penumpang 1 diisi dari profil Anda. Silakan ubah bila yang berangkat orang lain.' : 'Nama penumpang 1 diisi dari profil. Lengkapi NIK dan tanggal lahir di Profil agar berikutnya terisi otomatis.'}</p>` : ''}
-          <form id="form" novalidate>${lock.seats.map((s, i) => card(s, i, coachOf(s))).join('')}
+          <form id="form" novalidate>${lock.seats.map((s, i) => card(s, i, coachOf(s), lock.seats.length)).join('')}
             <p class="alert on-dark" id="err" role="alert" hidden></p>
-            <div class="form-act"><button class="btn ghost" type="button" id="release">Lepas kursi</button><button class="btn gold" type="submit" id="submit">Lanjut ke pembayaran</button></div>
+            <div class="form-act"><button class="btn ghost" type="button" id="release">${lock.seats.length > 1 ? 'Lepas semua kursi' : 'Lepas kursi'}</button><button class="btn gold" type="submit" id="submit">Lanjut ke pembayaran</button></div>
           </form>
         </div>
         <aside class="pax-side">
@@ -173,6 +173,42 @@ export function render(main, { params }) {
         paintFares();
       });
     });
+
+    // Isian penumpang disimpan per kursi, agar tidak hilang saat satu kursi dilepas dan halaman dimuat ulang.
+    const draftKey = `rk:paxdraft:${lockId}`;
+    const saveDraft = () => {
+      const out = {};
+      lock.seats.forEach((seat, i) => { const f = $(`fieldset[data-i="${i}"]`); if (!f) return; out[seat] = Object.fromEntries($$('[data-k]', f).map((x) => [x.dataset.k, x.value])); });
+      try { sessionStorage.setItem(draftKey, JSON.stringify(out)); } catch { /* mode privat */ }
+    };
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(draftKey) || 'null');
+      if (draft) {
+        lock.seats.forEach((seat, i) => {
+          const f = $(`fieldset[data-i="${i}"]`);
+          const v = draft[seat];
+          if (!f || !v) return;
+          $$('[data-k]', f).forEach((x) => { if (v[x.dataset.k]) { x.value = v[x.dataset.k]; x.dispatchEvent(new Event('input', { bubbles: true })); } });
+        });
+        sessionStorage.removeItem(draftKey);
+      }
+    } catch { /* draf rusak diabaikan */ }
+
+    // Lepas satu kursi: sisa kursi tetap ditahan lewat PUT /api/locks/{id}; batas waktu tidak berubah.
+    $$('.pax-drop').forEach((btn) => btn.addEventListener('click', async () => {
+      const seat = btn.dataset.drop;
+      const yes = await confirmDialog({ title: `Lepas kursi ${esc(seat.split('-')[1])}?`, body: '<p>Kursi ini langsung tersedia lagi untuk penumpang lain. Kursi lainnya tetap ditahan untuk Anda.</p>', confirm: 'Lepas kursi ini', cancel: 'Tetap tahan', danger: true });
+      if (!yes) return;
+      saveDraft();
+      try {
+        await api(`/api/locks/${lockId}`, { method: 'PUT', body: { seats: lock.seats.filter((x) => x !== seat) } });
+        toast(`Kursi ${seat.split('-')[1]} sudah dilepas.`);
+        go(location.pathname + location.search, { replace: true });
+      } catch (e) {
+        try { sessionStorage.removeItem(draftKey); } catch { /* mode privat */ }
+        toast(e.message, 'warn');
+      }
+    }));
 
     $('#release').addEventListener('click', async () => {
       const yes = await confirmDialog({ title: 'Lepas kursi ini?', body: '<p>Kursi langsung tersedia lagi untuk penumpang lain, dan Anda perlu memilih dari awal.</p>', confirm: 'Lepas kursi', cancel: 'Tetap tahan', danger: true });

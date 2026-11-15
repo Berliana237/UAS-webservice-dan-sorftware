@@ -1,5 +1,5 @@
 /** Tiket: boarding pass per penumpang dengan QR, cap LUNAS, dan pembatalan yang menjelaskan refund sebelum dilakukan. */
-import { $, api, esc, rupiah, timeOf, dateLong, confirmDialog, go, toast } from '../core.js';
+import { $, $$, api, esc, rupiah, timeOf, dateLong, confirmDialog, go, toast } from '../core.js';
 import { Kiko } from '../kiko.js';
 import { Sound } from '../sound.js';
 import { qrSvg, steps, confetti } from '../ui.js';
@@ -10,9 +10,10 @@ const STATE = {
   CONFIRMED: ['LUNAS', 'ok'], CHECKED_IN: ['SUDAH NAIK', 'ok'], CANCELLED: ['DIBATALKAN', 'bad'], EXPIRED: ['KEDALUWARSA', 'bad'], PENDING_PAYMENT: ['MENUNGGU BAYAR', 'wait'],
 };
 
-function pass(b, p, i) {
+function pass(b, p, i, opts = {}) {
   const valid = b.status === 'CONFIRMED' || b.status === 'CHECKED_IN';
-  return `<article class="ticket-wrap bp-wrap reveal" style="--i:${i}"><div class="ticket bp" style="--n:calc(100% - 118px)">
+  // opts.codes: lembar tiket tanpa QR, menampilkan kode booking dan kode tiket lengkap (dibuka dengan menekan QR).
+  return `<article class="ticket-wrap bp-wrap ${opts.codes ? 'bp-codes' : 'reveal'}" style="--i:${i}"><div class="ticket bp" style="--n:${opts.codes ? '100%' : 'calc(100% - 118px)'}">
     <div class="bp-main">
       <header class="bp-head"><span class="eyebrow">${esc(b.trainName)}</span><span class="mono bp-code">${esc(b.code)}</span></header>
       <div class="bp-route">
@@ -26,14 +27,15 @@ function pass(b, p, i) {
         <div><dt>Golongan</dt><dd>${p.passengerTypeLabel || TYPE[p.passengerType] || ''}</dd></div>
         <div><dt>Kelas</dt><dd>${{ EKONOMI: 'Ekonomi', EKSEKUTIF: 'Eksekutif', LUXURY: 'Luxury' }[p.seatClass] || ''}</dd></div>
         <div><dt>NIK</dt><dd class="mono">${esc(p.nikMasked || '-')}</dd></div>
+        ${opts.codes ? `<div class="bp-wide"><dt>Kode booking</dt><dd class="mono bp-big">${esc(b.code)}</dd></div><div class="bp-wide"><dt>Kode tiket</dt><dd class="mono bp-big">${esc(p.ticketCode || '-')}</dd></div>` : ''}
       </dl>
       <p class="bp-date muted">${dateLong(b.departureAt)}</p>
     </div>
-    <div class="perf"></div>
+    ${opts.codes ? '' : `<div class="perf"></div>
     <div class="bp-stub">
-      ${valid && p.ticketCode ? `<div class="bp-qr" role="img" aria-label="Kode QR tiket">${qrSvg(p.ticketCode)}</div><small class="mono">${esc(p.ticketCode.slice(0, 16))}…</small>` : '<div class="bp-void">Tidak berlaku</div>'}
+      ${valid && p.ticketCode ? `<button type="button" class="bp-qr" data-pi="${i}" aria-label="Kode QR tiket. Tekan untuk melihat kode booking dan kode tiket" title="Tekan untuk melihat kode tiket">${qrSvg(p.ticketCode)}</button><small class="mono">${esc(p.ticketCode.slice(0, 16))}…</small>` : '<div class="bp-void">Tidak berlaku</div>'}
       ${p.checkedIn ? '<small class="bp-in">Sudah check-in</small>' : ''}
-    </div>
+    </div>`}
   </div></article>`;
 }
 
@@ -65,7 +67,29 @@ export function render(main, { params, query }) {
         ${b.status === 'PENDING_PAYMENT' ? `<a class="btn gold" href="/bayar/${esc(id)}" data-link>Lanjut bayar</a><button class="btn ghost" id="cancel">Batalkan pesanan</button>` : ''}
         ${['CANCELLED', 'EXPIRED'].includes(b.status) ? '<a class="btn gold" href="/cari" data-link>Cari kereta lagi</a>' : ''}
       </div>`;
-    $('#print')?.addEventListener('click', () => print());
+    // Cetak hanya lembar tiket, bukan seluruh halaman.
+    $('#print')?.addEventListener('click', () => {
+      document.body.classList.add('print-tickets');
+      const done = () => { document.body.classList.remove('print-tickets'); removeEventListener('afterprint', done); };
+      addEventListener('afterprint', done);
+      print();
+      setTimeout(done, 1500);
+    });
+    // Tekan QR: tampilkan lembar tiket yang sama tanpa QR, dengan kode booking dan kode tiket.
+    $$('.bp-qr[data-pi]', $('#tp')).forEach((q) => q.addEventListener('click', () => {
+      const p = b.passengers[Number(q.dataset.pi)];
+      const ov = document.createElement('div');
+      ov.className = 'bp-modal';
+      ov.setAttribute('role', 'dialog');
+      ov.setAttribute('aria-modal', 'true');
+      ov.setAttribute('aria-label', 'Kode tiket');
+      ov.innerHTML = `<div class="bp-modal-in">${pass(b, p, Number(q.dataset.pi), { codes: true })}<button type="button" class="btn gold" data-close>Tutup</button></div>`;
+      document.body.append(ov);
+      const close = () => { ov.remove(); q.focus(); };
+      ov.addEventListener('click', (e) => { if (e.target === ov || e.target.closest('[data-close]')) close(); });
+      ov.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+      $('[data-close]', ov).focus();
+    }));
     $('#cancel')?.addEventListener('click', () => cancel(b));
     if (fresh) {
       setTimeout(() => {

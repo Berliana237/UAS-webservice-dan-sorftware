@@ -151,8 +151,10 @@ export function render(main, { params, query }) {
 
   function paintSeats() {
     $('#plan').innerHTML = coachPlan(map.coaches[coachIdx]);
+    $('#plan').dataset.cls = map.coaches[coachIdx].coach.seatClass.toLowerCase();
     $('#consist').innerHTML = trainStrip();
-    $('#coach-name').innerHTML = `${esc(map.coaches[coachIdx].coach.label)} <small class="muted">· ${map.coaches[coachIdx].available} kosong · ${rupiah(map.coaches[coachIdx].adultFare)}</small>`;
+    const cc = map.coaches[coachIdx];
+    $('#coach-name').innerHTML = `<span class="cls-dot ${cc.coach.seatClass.toLowerCase()}" aria-hidden="true"></span>${esc(cc.coach.label)} <small class="muted">· ${cc.available} kosong</small><span class="coach-price mono">${rupiah(cc.adultFare)}<small> / kursi</small></span>`;
     summary();
   }
 
@@ -167,6 +169,7 @@ export function render(main, { params, query }) {
           <div class="seat-info" id="seat-info" aria-live="polite"><span class="muted">Arahkan atau fokuskan kursi untuk melihat status tiap ruas.</span></div>
           <ul class="legend" aria-label="Keterangan kursi">
             <li><i class="seat-k available"></i>Kosong</li><li><i class="seat-k sel"></i>Pilihan Anda</li><li><i class="seat-k locked"></i>Ditahan</li><li><i class="seat-k booked"></i>Terisi</li>
+            <li class="legend-cls"><i class="cls-dot ekonomi"></i>Ekonomi <i class="cls-dot eksekutif"></i>Eksekutif <i class="cls-dot luxury"></i>Luxury</li>
             <li class="live" id="live"><i></i><span>Menghubungkan...</span></li>
           </ul>
         </div>

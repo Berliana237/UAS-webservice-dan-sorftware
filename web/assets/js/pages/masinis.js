@@ -18,6 +18,16 @@ const arrive = (t) => t.stops[t.stops.length - 1].arriveAt;
 const mins = (t) => Math.round((Date.parse(arrive(t)) - Date.parse(t.departureAt)) / 60000);
 const plusDays = (n) => new Date(Date.now() + 7 * 3600000 + n * 86400000).toISOString().slice(0, 10);
 
+/** Urutan status: dalam perjalanan, akan berangkat, selesai, dibatalkan (paling bawah). Lalu berdasarkan jam berangkat. */
+const RANK = (t) => (t.status === 'CANCELLED' ? 3 : { ON_TRIP: 0, UPCOMING: 1, COMPLETED: 2 }[t.phase] ?? 1);
+const byStatus = (a, b) => RANK(a) - RANK(b) || Date.parse(a.departureAt) - Date.parse(b.departureAt);
+const FILTERS = [['ALL', 'Semua'], ['ON_TRIP', 'Berjalan'], ['UPCOMING', 'Akan berangkat'], ['DELAYED', 'Terlambat'], ['COMPLETED', 'Selesai'], ['CANCELLED', 'Dibatalkan']];
+const matchFilter = (t, f) => f === 'ALL' || (f === 'DELAYED' ? t.status === 'DELAYED' : f === 'CANCELLED' ? t.status === 'CANCELLED' : t.phase === f && t.status !== 'CANCELLED');
+const filterChips = (id, list, current) => `<div class="st-filter" id="${id}" role="group" aria-label="Saring berdasarkan status">${FILTERS.map(([k, label]) => {
+  const n = list.filter((t) => matchFilter(t, k)).length;
+  return k !== 'ALL' && !n ? '' : `<button type="button" class="st-chip ${k === current ? 'on' : ''}" data-f="${k}" aria-pressed="${k === current}">${label} <small>${n}</small></button>`;
+}).join('')}</div>`;
+
 function sheet(title, html) {
   const el = document.createElement('div');
   el.className = 'sheet';
@@ -190,6 +200,7 @@ async function dashboard(box) {
     <div id="md"><span class="skel" style="height:320px"></span></div>`;
   let tick = 0;
   let kk = null;
+  let dayFilter = 'ALL';
   const paint = async () => {
     const { trips } = await api(`/api/masinis/trips?from=${plusDays(-1)}&to=${plusDays(14)}`);
     if (!$('#md')) return;
@@ -214,14 +225,26 @@ async function dashboard(box) {
         <section class="card flat"><div class="card-head"><div><h2>Periksa karcis</h2><p>Pindai QR tiket dengan pemindai, atau tempel kode tiket.</p></div></div>
           <form class="ci-form" id="ci"><label class="sr" for="code">Kode tiket</label><div class="search-in">${icon.scan}<input class="in mono" id="code" placeholder="TKT-..." autocomplete="off"></div><button class="btn gold">Periksa</button></form><div id="ci-out" aria-live="polite"></div></section>
         <section class="card flat"><div class="card-head"><div><h2>Perjalanan hari ini</h2><p>${dateLong(Date.now())}</p></div></div>
-          ${today.length ? `<ul class="day-list">${today.map((t) => `<li><span class="mono">${timeOf(t.departureAt)}</span><span><b>${esc(t.trainName)}</b><small class="muted">${route(t)}</small></span>${pill(PHASE, t.phase)}<button class="btn link" data-man="${esc(t.id)}">Manifest</button></li>`).join('')}</ul>` : '<p class="muted">Tidak ada dinas hari ini. Selamat beristirahat.</p>'}</section>
+          ${today.length ? `${filterChips('day-f', today, dayFilter)}<div id="day-list"></div>` : '<p class="muted">Tidak ada dinas hari ini. Selamat beristirahat.</p>'}</section>
       </div>`;
+    const drawDay = () => {
+      const box2 = $('#day-list');
+      if (!box2) return;
+      const list = today.filter((t) => matchFilter(t, dayFilter)).sort(byStatus);
+      box2.innerHTML = list.length ? `<ul class="day-list">${list.map((t) => `<li class="${t.phase === 'COMPLETED' ? 'done' : ''}"><span class="mono">${timeOf(t.departureAt)}</span><span><b>${esc(t.trainName)}</b><small class="muted">${route(t)}</small></span>${t.status === 'CANCELLED' ? pill(STATUS, t.status) : pill(PHASE, t.phase)}<button class="btn link" data-man="${esc(t.id)}">Manifest</button></li>`).join('')}</ul>` : '<p class="muted">Tidak ada perjalanan dengan status ini.</p>';
+      $$('[data-man]', box2).forEach((b) => b.addEventListener('click', () => manifest(trips.find((t) => t.id === b.dataset.man))));
+    };
+    $$('#day-f [data-f]').forEach((b) => b.addEventListener('click', () => {
+      dayFilter = b.dataset.f;
+      $$('#day-f [data-f]').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', String(x === b)); });
+      drawDay();
+    }));
+    drawDay();
     kk?.destroy();
     kk = Kiko.mount($('#m-kiko'), { pat: true });
     setTimeout(() => kk.say(focus ? `Siap berangkat pukul ${timeOf(focus.departureAt)}!` : 'Hari ini santai dulu.', 2800), 800);
     $('#d-man')?.addEventListener('click', () => manifest(focus));
     $('#d-delay')?.addEventListener('click', () => reportDelay(focus, paint));
-    $$('[data-man]').forEach((b) => b.addEventListener('click', () => manifest(trips.find((t) => t.id === b.dataset.man))));
     $('#ci').addEventListener('submit', async (e) => {
       e.preventDefault();
       const ticketCode = $('#code').value.trim();
@@ -249,25 +272,30 @@ async function dashboard(box) {
 
 /* ---------- Jadwal dinas ---------- */
 async function schedule(box) {
-  const state = { from: plusDays(-1), to: plusDays(14) };
+  const state = { from: plusDays(-1), to: plusDays(14), f: 'ALL' };
   box.innerHTML = `<div class="shell-head"><div><h1>Jadwal <em>dinas</em></h1><p>Hari, tanggal, jam, kereta, dan rute yang menjadi tugas Anda.</p></div></div>
     <div id="speriod"></div>
     <div id="sl"><span class="skel" style="height:300px"></span></div>`;
   const load = async () => {
     const r = await api(`/api/masinis/trips?from=${state.from}&to=${state.to}`);
     if (!$('#sl')) return;
+    // Aktif (berjalan/akan berangkat) di atas per hari, lalu yang selesai/dibatalkan di bagian paling bawah.
+    const shown = r.trips.filter((t) => matchFilter(t, state.f)).sort((x, y) => (RANK(x) >= 2) - (RANK(y) >= 2) || Date.parse(x.departureAt) - Date.parse(y.departureAt));
     const byDay = new Map();
-    r.trips.forEach((t) => { const k = t.serviceDate; if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(t); });
-    $('#sl').innerHTML = r.trips.length ? `<p class="muted" style="margin-bottom:10px">${r.trips.length} perjalanan · ${dateNum(`${r.from}T12:00:00+07:00`)} sampai ${dateNum(`${r.to}T12:00:00+07:00`)}</p>
+    shown.forEach((t) => { const k = `${RANK(t) >= 2 ? 'z' : 'a'}${t.serviceDate}`; if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(t); });
+    let doneHead = false;
+    const sepRow = (k) => { if (k[0] !== 'z' || doneHead) return ''; doneHead = true; return '<tr class="sep-row"><td colspan="7">Selesai dan dibatalkan</td></tr>'; };
+    $('#sl').innerHTML = r.trips.length ? `${filterChips('sch-f', r.trips, state.f)}<p class="muted" style="margin:10px 0">${shown.length} dari ${r.trips.length} perjalanan · ${dateNum(`${r.from}T12:00:00+07:00`)} sampai ${dateNum(`${r.to}T12:00:00+07:00`)}</p>
       <div class="tbl-wrap"><table class="tbl sched-tbl"><thead><tr><th>Hari</th><th>Tanggal</th><th>Jam</th><th>Kereta</th><th>Rute</th><th>Status</th><th></th></tr></thead><tbody>
-      ${[...byDay].map(([d, list]) => list.map((t, i) => `<tr class="${d === wibToday() ? 'today' : ''} ${i === 0 ? 'day-start' : ''}">
+      ${[...byDay].map(([k, list]) => { const d = k.slice(1); return sepRow(k) + list.map((t, i) => `<tr class="${d === wibToday() ? 'today' : ''} ${i === 0 ? 'day-start' : ''} ${RANK(t) >= 2 ? 'done' : ''}">
         <td>${i === 0 ? `<b>${dayName(t.departureAt)}</b>${d === wibToday() ? ' <span class="chip gold">Hari ini</span>' : ''}` : ''}</td><td>${i === 0 ? dateNum(t.departureAt) : ''}</td>
         <td class="mono">${timeOf(t.departureAt)}<span class="sub">tiba ${timeOf(arrive(t))}</span></td><td><b>${esc(t.trainName)}</b><span class="sub mono">${esc(t.trainNumber)}</span></td>
         <td>${route(t)}<span class="sub">${t.stops.length - 2} pemberhentian · ${duration(mins(t))}</span></td><td>${pill(PHASE, t.phase)} ${t.status !== 'SCHEDULED' ? pill(STATUS, t.status) : ''}${t.status === 'DELAYED' ? `<span class="sub">+${t.delayMinutes} menit</span>` : ''}</td>
-        <td class="acts"><button class="btn ghost sm" data-man="${esc(t.id)}">Manifest</button>${t.phase !== 'COMPLETED' && t.status !== 'CANCELLED' ? `<button class="btn ghost sm" data-dl="${esc(t.id)}">Terlambat?</button>` : ''}</td></tr>`).join('')).join('')}
-      </tbody></table></div>` : '<div class="empty"><p>Tidak ada dinas pada rentang ini.</p></div>';
+        <td class="acts"><button class="btn ghost sm" data-man="${esc(t.id)}">Manifest</button>${t.phase !== 'COMPLETED' && t.status !== 'CANCELLED' ? `<button class="btn ghost sm" data-dl="${esc(t.id)}">Terlambat?</button>` : ''}</td></tr>`).join(''); }).join('')}
+      </tbody></table></div>${shown.length ? '' : '<div class="empty"><p>Tidak ada perjalanan dengan status ini.</p></div>'}` : '<div class="empty"><p>Tidak ada dinas pada rentang ini.</p></div>';
     $$('[data-man]', box).forEach((b) => b.addEventListener('click', () => manifest(r.trips.find((t) => t.id === b.dataset.man))));
     $$('[data-dl]', box).forEach((b) => b.addEventListener('click', () => reportDelay(r.trips.find((t) => t.id === b.dataset.dl), load)));
+    $$('#sch-f [data-f]', box).forEach((b) => b.addEventListener('click', () => { state.f = b.dataset.f; load(); }));
   };
   const first = periodFilter($('#speriod'), { id: 'sp', presets: ['today', 'next7', 'next14', 'next30'], initial: 'next14', onChange: (r) => { state.from = r.from; state.to = r.to; load(); } });
   state.from = first.from;

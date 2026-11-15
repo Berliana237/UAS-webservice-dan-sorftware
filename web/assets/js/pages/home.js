@@ -25,7 +25,7 @@ export function render(main) {
         <p class="lede reveal" style="--i:2">Kami menjual kursi kereta per ruas. Penumpang lain turun di Yogyakarta? Kursi yang sama bisa Anda pakai sampai Malang. Lebih banyak pilihan, tanpa rebutan.</p>
         <div class="row reveal" style="--i:3;--gap:12px">
           <a class="btn gold" href="/cari" data-link>Cari tiket</a>
-          <a class="btn ghost" href="#jadwal">Lihat jadwal hari ini</a>
+          <a class="btn ghost" href="#jadwal-tetap" data-scroll>Lihat jadwal hari ini</a>
         </div>
       </div>
       <div class="hero-kiko reveal" style="--i:4"><div id="hero-kiko"></div></div>
@@ -56,7 +56,7 @@ export function render(main) {
   <section class="wrap sched" id="jadwal" aria-labelledby="board-h">
     <div class="sec-head"><div><p class="eyebrow">Jadwal</p><h2 id="board-h">Keberangkatan <em>berikutnya</em></h2></div><p class="muted">Papan diperbarui langsung dari jadwal operasional.</p></div>
     <div class="board" id="board" role="table" aria-label="Papan keberangkatan"></div>
-    <div class="sched-table">
+    <div class="sched-table" id="jadwal-tetap">
       <div class="row between" style="margin:34px 0 14px"><h3>Jadwal tetap per kereta</h3><div class="seg" id="dir" role="group" aria-label="Arah"><button type="button" aria-pressed="true" data-d="A">Arah berangkat</button><button type="button" aria-pressed="false" data-d="B">Arah pulang</button></div></div>
       <div class="tbl-wrap"><table class="tbl" id="sched"><thead><tr><th>Kereta</th><th>Relasi</th><th>Jam berangkat</th><th>Kelas</th><th></th></tr></thead><tbody><tr><td colspan="5"><span class="skel" style="height:120px"></span></td></tr></tbody></table></div>
     </div>
@@ -99,6 +99,13 @@ export function render(main) {
     <nav class="sf-col" aria-label="Bantuan"><b>Bantuan</b><a href="/bantuan" data-link>Pusat bantuan</a><a href="/privasi" data-link>Keamanan dan privasi</a><a href="/docs">Dokumen API</a></nav>
     <div class="sf-col"><b>Kontak</b><span class="muted">halo@rangkai.test</span><span class="muted">Layanan 24 jam lewat asisten Kiko</span></div>
   </footer>`;
+  // Tautan "#..." di beranda menggulir ke bagiannya tanpa mengubah URL (hash memicu router dan halaman digambar ulang).
+  main.querySelectorAll('a[href^="#"]').forEach((a) => a.addEventListener('click', (e) => {
+    const el = document.getElementById(a.getAttribute('href').slice(1));
+    if (!el) return;
+    e.preventDefault();
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }));
 
   const kiko = Kiko.mount($('#hero-kiko'), { pat: true, chatty: true });
   const timers = [setTimeout(() => { kiko.mood('wink', 2600); kiko.say(Kiko.greeting(), 3400); kiko.pose('wave', 1600); }, 1400)];
