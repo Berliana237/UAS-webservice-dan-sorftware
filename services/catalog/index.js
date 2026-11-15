@@ -102,6 +102,8 @@ setInterval(() => { try { ensureTrips(0, AHEAD_DAYS); } catch (e) { log.warn('pe
 
 /* Pengingat dinas: masinis diberi tahu sekali, 60 menit sebelum perjalanan yang ditugaskan kepadanya berangkat. */
 try { db.exec('ALTER TABLE trips ADD COLUMN masinis_reminded INTEGER NOT NULL DEFAULT 0'); } catch { /* kolom sudah ada */ }
+/* Susunan gerbong yang dibekukan untuk perjalanan yang sudah ada saat admin mengubah gerbong. NULL = ikut susunan kereta saat ini. */
+try { db.exec('ALTER TABLE trips ADD COLUMN composition TEXT'); } catch { /* kolom sudah ada */ }
 const DUTY_NOTICE_MS = 60 * 60000;
 function remindDuty() {
   const now = Date.now();
@@ -170,7 +172,7 @@ function loadTrip(id) {
   const train = st.train.get(t.train_id);
   const stops = st.stops.all(id).map((s) => ({ seq: s.seq, station: stationOf(s.station_code), arriveAt: iso(s.arrive_at), departAt: iso(s.depart_at), km: s.km, departMs: s.depart_at, arriveMs: s.arrive_at }));
   const segments = stops.slice(0, -1).map((s, i) => ({ index: i, from: s.station, to: stops[i + 1].station, km: stops[i + 1].km - s.km }));
-  const coaches = JSON.parse(train.composition).map(S.coachOf);
+  const coaches = JSON.parse(t.composition || train.composition).map(S.coachOf);
   return {
     id: t.id, trainId: t.train_id, trainNumber: train.number, trainName: train.name, trainEnabled: Boolean(train.enabled), direction: t.direction,
     serviceDate: t.service_date, departureAt: iso(t.departure_at), departureMs: t.departure_at, status: t.status, delayMinutes: t.delay_minutes,
@@ -432,8 +434,7 @@ app.post('/api/admin/trains', adminOnly, (req, res) => {
   if (st.train.get(id)) throw new ApiError(409, 'TRAIN_EXISTS', 'Kode kereta sudah dipakai.');
   db.tx(() => {
     db.prepare('INSERT INTO trains(id,number,name,enabled,composition,created_at) VALUES(?,?,?,0,?,?)').run(id, String(number).trim(), String(name).trim(), JSON.stringify(S.compose(COMPOSITIONS[key])), Date.now());
-    const defaults = { EKONOMI: [25000, 330], EKSEKUTIF: [50000, 850], LUXURY: [150000, 2500] };
-    for (const c of CLASSES.filter((x) => classes.includes(x))) db.prepare('INSERT INTO train_fares(train_id,seat_class,base,per_km) VALUES(?,?,?,?)').run(id, c, ...defaults[c]);
+    for (const c of CLASSES.filter((x) => classes.includes(x))) db.prepare('INSERT INTO train_fares(train_id,seat_class,base,per_km) VALUES(?,?,?,?)').run(id, c, ...DEFAULT_FARES[c]);
   });
   audit('train.created', req.user.sub, id);
   res.status(201).json({ train: trainView(st.train.get(id), { includeDisabledInfo: true }), notice: 'Kereta dibuat dalam keadaan nonaktif. Lengkapi rute dan jam operasional, lalu aktifkan.' });
@@ -525,9 +526,8 @@ app.put('/api/admin/trains/:id/services', adminOnly, (req, res) => {
 });
 
 /** Membuat ulang perjalanan mendatang yang belum ada klaim kursi, agar perubahan rute dan jam berlaku. */
-app.post('/api/admin/trains/:id/regenerate', adminOnly, async (req, res) => {
-  const t = st.train.get(req.params.id);
-  if (!t) throw new ApiError(404, 'TRAIN_NOT_FOUND', 'Kereta tidak ditemukan.');
+/** Menghapus perjalanan mendatang (lebih dari 1 jam lagi) yang belum punya klaim kursi, lalu membuatnya ulang dari data kereta terbaru. */
+async function regenerateTrips(t) {
   const future = db.prepare('SELECT id FROM trips WHERE train_id=? AND departure_at>?').all(t.id, Date.now() + 3600000).map((r) => r.id);
   let counts = {};
   if (future.length) {
@@ -540,8 +540,54 @@ app.post('/api/admin/trains/:id/regenerate', adminOnly, async (req, res) => {
   const removable = future.filter((id) => !counts[id]);
   db.tx(() => removable.forEach((id) => { db.prepare('DELETE FROM trip_stops WHERE trip_id=?').run(id); db.prepare('DELETE FROM trips WHERE id=?').run(id); }));
   const created = ensureTrips(0, AHEAD_DAYS, t.id);
-  audit('train.regenerated', req.user.sub, t.id, { removed: removable.length, created });
-  res.json({ removed: removable.length, kept: future.length - removable.length, created });
+  return { removed: removable.length, kept: future.length - removable.length, created };
+}
+
+app.post('/api/admin/trains/:id/regenerate', adminOnly, async (req, res) => {
+  const t = st.train.get(req.params.id);
+  if (!t) throw new ApiError(404, 'TRAIN_NOT_FOUND', 'Kereta tidak ditemukan.');
+  const r = await regenerateTrips(t);
+  audit('train.regenerated', req.user.sub, t.id, r);
+  res.json(r);
+});
+
+/**
+ * Atur gerbong: jumlah gerbong per kelas (Ekonomi, Eksekutif, Luxury), total 1 sampai 12.
+ * Perjalanan yang sudah ada dibekukan dulu dengan susunan lama (pesanan dan nomor kursinya aman),
+ * lalu perjalanan mendatang yang belum ada pesanannya dibuat ulang memakai susunan baru.
+ */
+const COACH_CODE = { LUXURY: 'LUX', EKSEKUTIF: 'EKS', EKONOMI: 'EKO' };
+const DEFAULT_FARES = { EKONOMI: [25000, 330], EKSEKUTIF: [50000, 850], LUXURY: [150000, 2500] };
+app.put('/api/admin/trains/:id/coaches', adminOnly, async (req, res) => {
+  const t = st.train.get(req.params.id);
+  if (!t) throw new ApiError(404, 'TRAIN_NOT_FOUND', 'Kereta tidak ditemukan.');
+  const c = (req.body || {}).coaches;
+  if (!c || typeof c !== 'object' || Array.isArray(c)) throw fields({ coaches: 'Kirim jumlah gerbong per kelas, misalnya { "EKONOMI": 5, "EKSEKUTIF": 3, "LUXURY": 1 }.' });
+  const f = {};
+  const n = {};
+  for (const k of CLASSES) {
+    n[k] = c[k] === undefined ? 0 : c[k];
+    if (!Number.isInteger(n[k]) || n[k] < 0 || n[k] > 12) f[k] = 'Isi 0 sampai 12 gerbong.';
+  }
+  const total = CLASSES.reduce((a, k) => a + (Number.isInteger(n[k]) ? n[k] : 0), 0);
+  if (!Object.keys(f).length && (total < 1 || total > 12)) f.coaches = 'Total gerbong 1 sampai 12.';
+  if (Object.keys(f).length) throw fields(f);
+  const spec = ['LUXURY', 'EKSEKUTIF', 'EKONOMI'].filter((k) => n[k] > 0).map((k) => `${COACH_CODE[k]}${n[k]}`).join('+');
+  const composition = JSON.stringify(S.compose(spec));
+  const before = JSON.parse(t.composition);
+  db.tx(() => {
+    db.prepare('UPDATE trips SET composition=? WHERE train_id=? AND composition IS NULL').run(t.composition, t.id);
+    db.prepare('UPDATE trains SET composition=? WHERE id=?').run(composition, t.id);
+    const have = new Set(st.fares.all(t.id).map((x) => x.seat_class));
+    for (const k of CLASSES) if (n[k] > 0 && !have.has(k)) db.prepare('INSERT INTO train_fares(train_id,seat_class,base,per_km) VALUES(?,?,?,?)').run(t.id, k, ...DEFAULT_FARES[k]);
+  });
+  let regen = null;
+  try { regen = await regenerateTrips(st.train.get(t.id)); } catch { /* booking tidak tersedia: perjalanan baru tetap memakai susunan baru, admin bisa menekan Buat ulang jadwal nanti */ }
+  audit('train.coaches_updated', req.user.sub, t.id, { from: before.length, to: total, spec });
+  res.json({
+    train: trainView(st.train.get(t.id), { includeDisabledInfo: true }), spec, ...(regen || {}),
+    notice: regen ? `Susunan gerbong diperbarui. ${regen.kept} perjalanan yang sudah ada pesanannya tetap memakai susunan lama.` : 'Susunan gerbong diperbarui. Layanan pemesanan sedang tidak tersedia, tekan Buat ulang jadwal nanti untuk menerapkannya ke perjalanan mendatang.',
+  });
 });
 
 app.delete('/api/admin/trains/:id', adminOnly, (req, res) => {

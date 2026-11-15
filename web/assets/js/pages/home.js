@@ -104,7 +104,10 @@ export function render(main) {
     const el = document.getElementById(a.getAttribute('href').slice(1));
     if (!el) return;
     e.preventDefault();
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const target = () => el.getBoundingClientRect().top + scrollY - 80;
+    window.scrollTo({ top: target(), behavior: 'smooth' });
+    // Cadangan bila animasi gulir halus tidak berjalan (mis. mode hemat daya): lompat langsung.
+    setTimeout(() => { if (Math.abs(el.getBoundingClientRect().top - 80) > 40) window.scrollTo({ top: target(), behavior: 'instant' }); }, 900);
   }));
 
   const kiko = Kiko.mount($('#hero-kiko'), { pat: true, chatty: true });

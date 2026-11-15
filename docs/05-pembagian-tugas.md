@@ -8,11 +8,11 @@ Calvin Liu Victory hanya mengambil mata kuliah Web Service, dan Evander Doxa Wid
 
 | NRP | Nama | Web Service | Software Testing |
 |---|---|---|---|
-| 5803024004 | Jap Robertus Kurniawan Setiabudi | 27% | 27% |
-| 5803024005 | Daniel | 27% | 27% |
-| 5803024015 | Berliana Az Zahra Tristianti | 26% | **28%** |
-| 5803024003 | Calvin Liu Victory | 20% | tidak mengambil |
-| 5803024016 | Evander Doxa Widiyanto | tidak mengambil | 18% |
+| 5803024004 | Jap Robertus Kurniawan Setiabudi | **27%** | 25% |
+| 5803024005 | Daniel | 26% | 26% |
+| 5803024015 | Berliana Az Zahra Tristianti | 25% | **28%** |
+| 5803024003 | Calvin Liu Victory | 22% | tidak mengambil |
+| 5803024016 | Evander Doxa Widiyanto | tidak mengambil | 21% |
 | | **Total** | **100%** | **100%** |
 
 ## Web Service (kelompok pembangun)
@@ -22,9 +22,9 @@ Pembagian mengikuti rubrik: arsitektur & desain (20%), justifikasi protokol (10%
 | Anggota | Tanggung jawab | Komponen rubrik |
 |---|---|---|
 | **Jap Robertus** (27%) | Ketua teknis. Rancangan arsitektur microservices dan diagram. booking-service Java: seat locking per segmen (`BEGIN IMMEDIATE`, TTL 10 menit, kursi terkunci saat dipilih lewat `POST`/`PUT /api/locks`), outbox, pembaruan kursi real-time (SSE). API Gateway: routing, validasi skema, rate limit, load balancing booking-a/booking-b. Integrasi seluruh service, deployment Railway dan volume data. Koordinator respons bug report dari Kelompok B | Arsitektur, implementasi, respons bug |
-| **Daniel** (27%) | auth-service: OAuth2 Authorization Code + PKCE, JWT RS256, refresh token berotasi, Client Credentials, API key partner. mTLS antar service dan pembuatan sertifikat. Message broker (topik, lease, retry, DLQ), service registry (heartbeat, discovery), dan notification-service (konsumen event, notifikasi, audit log). Rancangan keamanan (`01-rancangan-keamanan.md`) | Keamanan, implementasi |
-| **Berliana** (26%) | catalog-service dan GraphQL (skema, resolver, batas kedalaman/kompleksitas query), `schema.graphql` dan `graphql-examples.md`. payment-service: QRIS simulasi, webhook bertanda tangan HMAC, unggah bukti transfer, refund. Justifikasi pilihan protokol (`02-justifikasi-protokol.md`). Spesifikasi OpenAPI dan Swagger UI | Justifikasi protokol, dokumentasi API, implementasi |
-| **Calvin** (20%) | Aplikasi web (SPA) termasuk tampilan responsif ponsel/tablet, support-service (FAQ + chat AI). README, daftar environment variable, koleksi Postman beserta environment template untuk penguji | Dokumentasi API, implementasi |
+| **Daniel** (26%) | auth-service: OAuth2 Authorization Code + PKCE, JWT RS256, refresh token berotasi, Client Credentials, API key partner. mTLS antar service dan pembuatan sertifikat. Message broker (topik, lease, retry, DLQ), service registry (heartbeat, discovery), dan notification-service (konsumen event, notifikasi, audit log). Rancangan keamanan (`01-rancangan-keamanan.md`) | Keamanan, implementasi |
+| **Berliana** (25%) | catalog-service (termasuk fitur admin atur gerbong Ekonomi/Eksekutif/Luxury, `PUT /api/admin/trains/{id}/coaches`) dan GraphQL (skema, resolver, batas kedalaman/kompleksitas query), `schema.graphql` dan `graphql-examples.md`. payment-service: QRIS simulasi, webhook bertanda tangan HMAC, unggah bukti transfer, refund. Justifikasi pilihan protokol (`02-justifikasi-protokol.md`). Spesifikasi OpenAPI dan Swagger UI | Justifikasi protokol, dokumentasi API, implementasi |
+| **Calvin** (22%) | Aplikasi web (SPA) termasuk tampilan responsif ponsel/tablet, support-service (FAQ + chat AI). README, daftar environment variable, koleksi Postman beserta environment template untuk penguji | Dokumentasi API, implementasi |
 
 ## Software Testing (kelompok penguji, menguji sistem Kelompok E)
 
@@ -33,9 +33,9 @@ Pembagian mengikuti rubrik: test plan (20%), test case design (25%), eksekusi pe
 | Anggota | Tanggung jawab | Komponen rubrik |
 |---|---|---|
 | **Berliana** (28%) | Koordinator pengujian. Menyusun test plan (ruang lingkup, strategi fungsional/performa/keamanan, jadwal, kriteria masuk-keluar, risiko). Test case design: EP, BVA, decision table, state transition. Penanggung jawab bab 5 laporan dan komunikasi dengan Kelompok E | Test plan, test case design |
-| **Jap Robertus** (27%) | Pengujian performa dan beban (k6) serta skenario konkurensi. Penyiapan tooling (Postman/Newman, k6) dan otomasi. Pengujian fungsional ujung ke ujung dari sisi antarmuka | Eksekusi pengujian |
-| **Daniel** (27%) | Pengujian fungsional API lewat Postman/Newman dan PyTest (jalur sukses dan negatif). Pengujian keamanan (OWASP API Top 10: autentikasi, otorisasi BOLA/BFLA, rate limit, injeksi). Retest dan verifikasi perbaikan dari Kelompok E | Eksekusi, retest & verifikasi |
-| **Evander** (18%) | Penulisan bug report (langkah reproduksi, bukti, severity, prioritas, saran perbaikan). Pengumpulan bukti pengujian (tangkapan layar, log), rekap hasil, dan bagian 6.2 laporan | Kualitas bug report |
+| **Jap Robertus** (25%) | Pengujian performa dan beban (k6) serta skenario konkurensi. Penyiapan tooling (Postman/Newman, k6) dan otomasi. Pengujian fungsional ujung ke ujung dari sisi antarmuka | Eksekusi pengujian |
+| **Daniel** (26%) | Pengujian fungsional API lewat Postman/Newman dan PyTest (jalur sukses dan negatif). Pengujian keamanan (OWASP API Top 10: autentikasi, otorisasi BOLA/BFLA, rate limit, injeksi). Retest dan verifikasi perbaikan dari Kelompok E | Eksekusi, retest & verifikasi |
+| **Evander** (21%) | Penulisan bug report (langkah reproduksi, bukti, severity, prioritas, saran perbaikan). Pengumpulan bukti pengujian (tangkapan layar, log), rekap hasil, dan bagian 6.2 laporan | Kualitas bug report |
 
 ## Timeline minggu 8 sampai UAS
 

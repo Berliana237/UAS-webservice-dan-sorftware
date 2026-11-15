@@ -50,7 +50,7 @@ const ROUTES = [
   R('GET', /^\/api\/admin\/trains\/[^/]+$/, 'catalog', { scopes: ['schedule:write'] }),
   R('PATCH', /^\/api\/admin\/trains\/[^/]+$/, 'catalog', { scopes: ['schedule:write'] }),
   R('DELETE', /^\/api\/admin\/trains\/[^/]+$/, 'catalog', { scopes: ['schedule:write'] }),
-  R('PUT', /^\/api\/admin\/trains\/[^/]+\/(route|fares|services)$/, 'catalog', { scopes: ['schedule:write'] }),
+  R('PUT', /^\/api\/admin\/trains\/[^/]+\/(route|fares|services|coaches)$/, 'catalog', { scopes: ['schedule:write'] }),
   R('POST', /^\/api\/admin\/trains\/[^/]+\/regenerate$/, 'catalog', { scopes: ['schedule:write'] }),
   R('GET', /^\/api\/admin\/trains\/[^/]+\/trips$/, 'catalog', { scopes: ['system:read'] }),
   R('GET', /^\/api\/admin\/catalog-stats$/, 'catalog', { scopes: ['system:read'] }),

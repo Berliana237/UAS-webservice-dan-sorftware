@@ -58,7 +58,7 @@ async function dashboard(box) {
       </div>
       <div class="grid-2">
         <section class="card flat"><div class="card-head"><div><h2>Pendapatan 7 hari</h2><p>Total pesanan lunas per hari.</p></div></div>
-          <div class="spark">${b.last7Days.map((d, i) => `<div title="${esc(dayLabel(d.day, true))}: ${rupiah(d.revenue)}, ${d.bookings} pesanan"><i style="height:${Math.max(3, (d.revenue / max) * 100)}%;animation-delay:${i * 60}ms"></i><small>${esc(dayLabel(d.day))}</small></div>`).join('')}</div></section>
+          <div class="spark">${b.last7Days.map((d, i) => `<div title="${esc(dayLabel(d.day, true))}: ${rupiah(d.revenue)}, ${d.bookings} pesanan"><b class="sp-gap" style="flex-grow:${100 - Math.max(3, (d.revenue / max) * 100)}"></b><i style="flex-grow:${Math.max(3, (d.revenue / max) * 100)};animation-delay:${i * 60}ms"></i><small>${esc(dayLabel(d.day))}</small></div>`).join('')}</div></section>
         <section class="card flat"><div class="card-head"><div><h2>Keberangkatan berikutnya</h2><p>Enam perjalanan terdekat.</p></div><a class="btn link" href="/admin/armada" data-link>Semua armada</a></div>
           <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Jam</th><th>Kereta</th><th>Relasi</th><th>Masinis</th></tr></thead><tbody>
           ${c.nextDepartures.map((d) => `<tr><td class="mono">${timeOf(d.departureAt)}<span class="sub">${dateNum(d.departureAt)}</span></td><td>${esc(d.trainName)}</td><td>${esc(d.origin)} &rarr; ${esc(d.destination)}</td><td>${esc(d.masinisName || '-')}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Tidak ada.</td></tr>'}
@@ -138,16 +138,49 @@ async function dataOps(box) {
   async function editTrain(id) {
     const { train: t } = await api(`/api/admin/trains/${id}`);
     const s = sheet(`${esc(t.name)} <small class="muted mono">${esc(t.number)}</small>`, `
-      <div class="tabs-line small" role="tablist"><button role="tab" aria-selected="true" data-p="info">Info & masinis</button><button role="tab" aria-selected="false" data-p="route">Rute</button><button role="tab" aria-selected="false" data-p="fares">Tarif kelas</button><button role="tab" aria-selected="false" data-p="svc">Jam operasional</button></div>
+      <div class="tabs-line small" role="tablist"><button role="tab" aria-selected="true" data-p="info">Info & masinis</button><button role="tab" aria-selected="false" data-p="route">Rute</button><button role="tab" aria-selected="false" data-p="coaches">Gerbong</button><button role="tab" aria-selected="false" data-p="fares">Tarif kelas</button><button role="tab" aria-selected="false" data-p="svc">Jam operasional</button></div>
       <div id="tp"></div>`, { wide: true });
     const tp = $('#tp', s.el);
     const reload = async () => { Object.assign(t, (await api(`/api/admin/trains/${id}`)).train); };
     const panels = {
+      // Atur gerbong: jumlah gerbong Ekonomi, Eksekutif, Luxury (total 1-12). Perjalanan yang sudah ada pesanannya tetap memakai susunan lama.
+      coaches() {
+        const cnt = (cls) => t.coaches.filter((c) => c.seatClass === cls).length;
+        const KEYS = [['EKONOMI', 'Ekonomi', 'ekonomi'], ['EKSEKUTIF', 'Eksekutif', 'eksekutif'], ['LUXURY', 'Luxury', 'luxury']];
+        tp.innerHTML = `<form class="stack" id="pc" novalidate>
+          <p class="muted">Atur jumlah gerbong tiap kelas (total 1 sampai 12). Gerbong Luxury ditaruh paling depan, lalu Eksekutif, lalu Ekonomi. Perjalanan yang sudah punya pemesan tetap memakai susunan lama agar nomor kursi penumpang tidak berubah.</p>
+          <div class="grid-3">${KEYS.map(([k, label, cls]) => field(k, `<span class="cls-dot ${cls}"></span>${label}`, `<input class="in mono" id="f-${k}" type="number" min="0" max="12" step="1" value="${cnt(k)}">`)).join('')}</div>
+          <div class="f"><span class="lbl">Pratinjau rangkaian (<b id="c-total"></b> gerbong)</span><div class="consist mini" id="c-prev"></div></div>
+          <div class="row between"><span class="muted" id="c-msg"></span><button class="btn gold" type="submit">Simpan susunan gerbong</button></div></form>`;
+        const vals = () => Object.fromEntries(KEYS.map(([k]) => [k, Number($(`#f-${k}`, tp).value || 0)]));
+        const preview = () => {
+          const v = vals();
+          const list = [['LUXURY', 'LUX', 'luxury'], ['EKSEKUTIF', 'EKS', 'eksekutif'], ['EKONOMI', 'EKO', 'ekonomi']].flatMap(([k, code, cls]) => Array.from({ length: Math.max(0, Math.min(12, v[k] || 0)) }, (_, i) => `<span class="car-tab ${cls}"><b>${code}${i + 1}</b></span>`));
+          $('#c-total', tp).textContent = Object.values(v).reduce((a, b) => a + (b || 0), 0);
+          $('#c-prev', tp).innerHTML = list.join('') + '<span class="loco"></span>';
+        };
+        $$('input', tp).forEach((i) => i.addEventListener('input', preview));
+        preview();
+        $('#pc', tp).addEventListener('submit', async (e) => {
+          e.preventDefault();
+          clearFieldErrors(e.currentTarget);
+          const v = vals();
+          const total = Object.values(v).reduce((a, b) => a + b, 0);
+          if (total < 1 || total > 12) { $('#c-msg', tp).textContent = 'Total gerbong harus 1 sampai 12.'; return; }
+          if (!await confirmDialog({ title: 'Simpan susunan gerbong?', body: '<p>Perjalanan mendatang yang belum punya pemesan dibuat ulang dengan susunan baru. Perjalanan yang sudah ada pemesannya tetap memakai susunan lama.</p>', confirm: 'Simpan' })) return;
+          try {
+            const r = await api(`/api/admin/trains/${id}/coaches`, { method: 'PUT', body: { coaches: v } });
+            await reload();
+            toast(r.notice, 'ok');
+            panels.coaches();
+          } catch (ex) { if (!showFieldErrors(e.currentTarget, ex)) toast(errMsg(ex), 'err'); }
+        });
+      },
       info() {
         tp.innerHTML = `<form class="stack" id="pi" novalidate>
           <div class="grid-2">${field('name', 'Nama kereta', `<input class="in" id="f-name" value="${esc(t.name)}" maxlength="60">`)}${field('number', 'Nomor KA', `<input class="in mono" id="f-number" value="${esc(t.number)}">`)}</div>
           ${field('masinisId', 'Masinis yang bertugas', `<select class="sel" id="f-mas"><option value="">Belum ditugaskan</option>${masinis.map((m) => `<option value="${esc(m.id)}" ${m.id === t.masinisId ? 'selected' : ''}>${esc(m.name)} (${esc(m.email)})</option>`).join('')}</select>`, 'Berlaku untuk semua perjalanan yang belum berangkat.')}
-          <div class="f"><span class="lbl">Rangkaian (9 gerbong)</span><div class="consist mini">${t.coaches.map((c) => `<span class="car-tab ${c.seatClass.toLowerCase()}"><b>${esc(c.code)}</b></span>`).join('')}<span class="loco"></span></div></div>
+          <div class="f"><span class="lbl">Rangkaian (${t.coaches.length} gerbong)</span><div class="consist mini">${t.coaches.map((c) => `<span class="car-tab ${c.seatClass.toLowerCase()}"><b>${esc(c.code)}</b></span>`).join('')}<span class="loco"></span></div></div>
           <label class="switch"><input type="checkbox" id="f-en" ${t.enabled ? 'checked' : ''}><i></i>Tampilkan untuk pelanggan</label>
           <div class="row between"><button class="btn ghost sm danger-text" type="button" id="del">${icon.trash} Hapus kereta</button><button class="btn gold" type="submit">Simpan</button></div></form>`;
         $('#pi', tp).addEventListener('submit', async (e) => {

@@ -243,3 +243,12 @@ input.in[readonly]{color:var(--ivory-dim);background:transparent;border-style:da
 .st-chip small{opacity:.7}
 .day-list li.done,.tbl tr.done{opacity:.6}
 .tbl tr.sep-row td{padding-top:18px;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ivory-dim)}
+/* Grafik pendapatan: kolom flex agar tinggi batang (persen) dihitung dari tinggi grafik yang mengisi kartu */
+.spark div{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;min-height:0}
+.spark div i{flex:0 0 auto}
+.card > .spark{position:relative}
+.stat b{overflow-wrap:anywhere;font-size:clamp(1.25rem,1.7vw,2rem)}
+.spark{align-items:stretch}
+.spark div i{flex:1 1 0;min-height:3px;width:100%}
+.spark div .sp-gap{flex:1 1 0;display:block;width:100%}
+.spark div small{flex:0 0 auto}

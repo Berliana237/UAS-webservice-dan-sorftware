@@ -456,3 +456,4 @@ button.bp-qr:focus-visible{outline:2px solid var(--brass-hi);outline-offset:3px}
   body.print-tickets .bp-wrap{break-inside:avoid;page-break-inside:avoid;margin:0 0 12px;opacity:1!important;transform:none!important;animation:none!important}
   body.print-tickets .bp-list *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+.bp-codes .bp-meta dd.mono:not(.bp-big){white-space:nowrap}

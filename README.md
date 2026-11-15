@@ -126,7 +126,7 @@ Spesifikasi lengkap: [docs/openapi.yaml](docs/openapi.yaml) dan [docs/schema.gra
 | Jadwal (admin) | `POST /api/trips`, `PATCH /api/trips/{id}` | `schedule:write` |
 | Partner | `GET /api/partner/v1/stations`, `.../schedules`, `.../trips/{id}/availability` | API key atau Client Credentials |
 | Admin: pengguna | `/api/admin/users` (CRUD), `/api/admin/users/{id}/role`, `/api/admin/users/{id}/password` | `user:manage` |
-| Admin: data operasional | `/api/admin/stations`, `/api/admin/trains` (CRUD), `/api/admin/trains/{id}/{route, fares, services}`, `/api/admin/trains/{id}/regenerate`, `/api/admin/settings` | `schedule:write` |
+| Admin: data operasional | `/api/admin/stations`, `/api/admin/trains` (CRUD), `/api/admin/trains/{id}/{route, fares, services, coaches}`, `/api/admin/trains/{id}/regenerate`, `/api/admin/settings` | `schedule:write` |
 | Admin: transfer | `GET /api/admin/transfers`, `POST /api/admin/transfers/{proofId}/decision` | `payment:review` |
 | Admin: armada dan sistem | `/api/admin/trains/{id}/trips`, `/api/admin/trips/{id}/passengers`, `/api/admin/trip-stats`, `/api/admin/catalog-stats`, `/api/admin/registry`, `/api/admin/queues`, `/api/admin/booking-stats`, `/api/admin/audit`, `/api/admin/alerts`, `/api/admin/api-keys` | `system:read`, `audit:read`, `apikey:manage` |
 

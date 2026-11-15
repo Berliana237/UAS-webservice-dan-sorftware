@@ -1219,6 +1219,33 @@ paths:
         '404': { description: Data tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Disimpan }
         '422': { $ref: '#/components/responses/Error' }
+  /api/admin/trains/{id}/coaches:
+    put:
+      tags: [Data Operasional]
+      summary: Atur gerbong (jumlah gerbong Ekonomi, Eksekutif, Luxury)
+      description: |
+        Total 1 sampai 12 gerbong. Urutan rangkaian: Luxury, Eksekutif, lalu Ekonomi. Kelas baru otomatis mendapat tarif awal (bisa diubah di Tarif kelas).
+        Perjalanan yang sudah ada dibekukan dengan susunan lama, sehingga pesanan dan nomor kursinya tidak berubah.
+        Perjalanan mendatang (lebih dari 1 jam lagi) yang belum punya pemesan dibuat ulang memakai susunan baru.
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, example: GJY } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [coaches]
+              properties:
+                coaches:
+                  type: object
+                  properties: { EKONOMI: { type: integer, minimum: 0, maximum: 12, example: 4 }, EKSEKUTIF: { type: integer, minimum: 0, maximum: 12, example: 4 }, LUXURY: { type: integer, minimum: 0, maximum: 12, example: 1 } }
+      responses:
+        '200': { description: 'Susunan disimpan. Berisi train, spec (misalnya LUX1+EKS4+EKO4), removed, kept, created, notice' }
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Data tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: Validasi gagal (body/query tidak sesuai), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/admin/trains/{id}/regenerate:
     post:
       tags: [Data Operasional]
