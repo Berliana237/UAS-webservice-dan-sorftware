@@ -16,6 +16,7 @@ x-hosts: &hosts
   CATALOG_HOST: catalog
   PAYMENT_HOST: payment
   NOTIFICATION_HOST: notification
+  SUPPORT_HOST: support
 
 services:
   registry:
@@ -58,12 +59,17 @@ services:
     command: ["node", "--disable-warning=ExperimentalWarning", "services/notification/index.js"]
     environment: { <<: *hosts, INSTANCE_ID: notification }
     depends_on: [registry, broker, auth]
+  support:
+    <<: *service
+    command: ["node", "--disable-warning=ExperimentalWarning", "services/support/index.js"]
+    environment: { <<: *hosts, INSTANCE_ID: support }
+    depends_on: [registry, catalog]
   gateway:
     <<: *service
     command: ["node", "--disable-warning=ExperimentalWarning", "services/gateway/index.js"]
     environment: { <<: *hosts, INSTANCE_ID: gateway, GATEWAY_HOST: 0.0.0.0, PUBLIC_URL: "http://localhost:8080" }
     ports: ["8080:8080", "8443:8443"]
-    depends_on: [registry, auth, catalog, booking-a, booking-b, payment, notification]
+    depends_on: [registry, auth, catalog, booking-a, booking-b, payment, notification, support]
 
 volumes:
   rangkai-data:

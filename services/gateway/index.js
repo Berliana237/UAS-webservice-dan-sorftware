@@ -32,9 +32,17 @@ process.on('uncaughtException', (e) => log.error('uncaught', { err: e.message, s
 process.on('unhandledRejection', (e) => log.error('unhandledRejection', { err: e?.message }));
 
 const MAX_BODY = 64 * 1024;
+/** Origin diizinkan bila ada di daftar CORS, atau sama persis dengan host yang sedang dibuka (halaman QRIS di ponsel lewat IP LAN). */
+function originAllowed(req) {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  if (config.corsOrigins.includes(origin)) return true;
+  try { return new URL(origin).host === req.headers.host; } catch { return false; }
+}
 const LIMITS = {
   global: config.rate.global, public: config.rate.publicRead, login: config.rate.login, register: config.rate.register,
   token: config.rate.token, lock: config.rate.lock, payment: config.rate.payment, graphql: config.rate.graphql,
+  support: config.rate.support,
 };
 
 /* ---------- Pemantau pola mencurigakan ---------- */
@@ -69,7 +77,7 @@ function applyHeaders(req, res, secure, csp) {
   const origin = req.headers.origin;
   if (origin) {
     res.setHeader('Vary', 'Origin');
-    if (config.corsOrigins.includes(origin)) {
+    if (originAllowed(req)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Access-Control-Expose-Headers', 'X-Request-Id, X-Upstream-Instance, X-RateLimit-Limit, X-RateLimit-Remaining, Retry-After, Idempotent-Replay');
@@ -103,14 +111,14 @@ async function verifyApiKey(key) {
   return value;
 }
 
-function readBody(req) {
+function readBody(req, max = MAX_BODY) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
     req.on('data', (c) => {
       size += c.length;
       // Sisa body dibuang tanpa memutus koneksi, supaya klien tetap menerima respons 413.
-      if (size > MAX_BODY) { chunks.length = 0; reject(Object.assign(new Error('terlalu besar'), { tooLarge: true })); return; }
+      if (size > max) { chunks.length = 0; reject(Object.assign(new Error('terlalu besar'), { tooLarge: true })); return; }
       chunks.push(c);
     });
     req.on('end', () => resolve(Buffer.concat(chunks)));
@@ -137,7 +145,7 @@ function forwardHeaders(req, extra, secure, body) {
 function proxyOnce(inst, req, res, target, headers, body, route) {
   return new Promise((resolve, reject) => {
     const upstream = https.request(inst.url + target, {
-      method: req.method, headers, agent: internal.agent, timeout: route.stream ? 0 : 15000,
+      method: req.method, headers, agent: internal.agent, timeout: route.stream ? 0 : (route.timeoutMs || 15000),
     }, (up) => {
       res.statusCode = up.statusCode;
       for (const [k, v] of Object.entries(up.headers)) if (!HOP.has(k)) res.setHeader(k, v);
@@ -178,7 +186,7 @@ async function proxy(req, res, route, target, extraHeaders, secure, body) {
 }
 
 /* ---------- Rute milik gateway sendiri ---------- */
-const SYSTEM_SERVICES = ['registry', 'broker', 'auth', 'catalog', 'booking', 'payment', 'notification'];
+const SYSTEM_SERVICES = ['registry', 'broker', 'auth', 'catalog', 'booking', 'payment', 'notification', 'support'];
 
 async function systemStatus() {
   const r = await internal.request(`${config.urls.registry}/services`);
@@ -219,15 +227,15 @@ async function handle(req, res, secure) {
 
   // Preflight CORS
   if (req.method === 'OPTIONS') {
-    if (req.headers.origin && !config.corsOrigins.includes(req.headers.origin)) return sendError(req, res, 403, 'CORS_REJECTED', 'Origin ini tidak diizinkan.');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+    if (!originAllowed(req)) return sendError(req, res, 403, 'CORS_REJECTED', 'Origin ini tidak diizinkan.');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Authorization,Content-Type,Idempotency-Key,X-API-Key');
     res.setHeader('Access-Control-Max-Age', '600');
     res.statusCode = 204;
     return res.end();
   }
   // Permintaan lintas origin yang tidak diizinkan ditolak sebelum menyentuh service.
-  if (req.headers.origin && !config.corsOrigins.includes(req.headers.origin) && isSpecific(pathname)) {
+  if (!originAllowed(req) && isSpecific(pathname)) {
     return sendError(req, res, 403, 'CORS_REJECTED', 'Origin ini tidak diizinkan.');
   }
 
@@ -285,10 +293,10 @@ async function handle(req, res, secure) {
   // Baca dan validasi body untuk rute yang punya skema.
   let body = null;
   if (route.schema || route.rawBody || route.rlKey || !['GET', 'HEAD', 'DELETE'].includes(req.method)) {
-    try { body = await readBody(req); } catch (e) {
+    try { body = await readBody(req, route.maxBody || MAX_BODY); } catch (e) {
       if (e.tooLarge) {
         res.setHeader('Connection', 'close');
-        return sendError(req, res, 413, 'PAYLOAD_TOO_LARGE', 'Body terlalu besar (batas 64 KB).');
+        return sendError(req, res, 413, 'PAYLOAD_TOO_LARGE', `Body terlalu besar (batas ${Math.round((route.maxBody || MAX_BODY) / 1024)} KB).`);
       }
       return undefined;
     }
@@ -329,9 +337,19 @@ const httpServer = http.createServer(wrap(false));
 const LISTEN_HOST = process.env.GATEWAY_HOST || '127.0.0.1';
 httpServer.listen(config.ports.gateway, LISTEN_HOST, () => log.info(`gateway HTTP di ${config.ports.gateway}`));
 const tlsDir = config.certDir;
-const httpsServer = https.createServer({
+const tlsOptions = {
   key: fs.readFileSync(path.join(tlsDir, 'gateway.key')),
   cert: fs.readFileSync(path.join(tlsDir, 'gateway.crt')),
   minVersion: 'TLSv1.2',
-}, wrap(true));
+};
+const httpsServer = https.createServer(tlsOptions, wrap(true));
 httpsServer.listen(config.ports.gatewayTls, LISTEN_HOST, () => log.info(`gateway HTTPS (TLS 1.2+) di ${config.ports.gatewayTls}`));
+
+// Browser, Postman, dan Newman membuka http://localhost:8080. Di Windows "localhost" dicoba lewat ::1 dulu,
+// jadi gateway ikut mendengar di loopback IPv6 agar koneksi itu langsung diterima, bukan ditolak lalu diulang lewat IPv4.
+if (LISTEN_HOST === '127.0.0.1' || LISTEN_HOST === '0.0.0.0') {
+  for (const [server, port] of [[http.createServer(wrap(false)), config.ports.gateway], [https.createServer(tlsOptions, wrap(true)), config.ports.gatewayTls]]) {
+    server.on('error', (e) => log.warn('loopback IPv6 tidak tersedia', { port, err: e.code }));
+    server.listen(port, '::1');
+  }
+}

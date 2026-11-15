@@ -191,6 +191,11 @@ const SOUNDS = {
   },
   horn: () => { [196, 247, 294].forEach((f) => tone(f, 0, 0.95, 0.15, 'sawtooth')); [196, 247, 294].forEach((f) => tone(f, 1.05, 1.3, 0.13, 'sawtooth')); },
   chug: () => { for (let i = 0; i < 12; i++) noise(i * 0.17, 0.09, 0.12 + i * 0.008, 600); },
+  /* Pistol Kiko: kokang, letusan, dan selongsong jatuh */
+  cock: () => { noise(0, 0.03, 0.28, 2600); tone(900, 0.02, 0.03, 0.08, 'square', 420); noise(0.12, 0.05, 0.32, 1700); tone(620, 0.13, 0.04, 0.08, 'square', 300); },
+  bang: () => { noise(0, 0.05, 0.6, 5200); noise(0, 0.45, 0.5, 650); tone(140, 0, 0.32, 0.38, 'sawtooth', 38); tone(3400, 0.5, 0.05, 0.05, 'triangle'); tone(2900, 0.62, 0.05, 0.04, 'triangle'); },
+  growl: () => { voice(240, 0, 0.32, 0.18, 170); voice(200, 0.3, 0.28, 0.14, 150); },
+  ding: () => { tone(1320, 0, 0.35, 0.1, 'sine'); tone(1760, 0.09, 0.45, 0.08, 'sine'); },
 };
 
 export const Sound = {

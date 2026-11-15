@@ -64,13 +64,13 @@ export function setup() {
   for (let i = 1; i <= USERS; i++) tokens.push(login(`load${i}@rangkai.test`));
   const trips = [];
   for (let d = 10; d < 16; d++) {
-    const r = http.get(`${BASE}/api/schedules?from=SGU&to=YK&date=${wibDate(d)}`);
-    trips.push(...r.json('trips').filter((t) => t.tripId.startsWith('ARN-')).map((t) => t.tripId));
+    const r = http.get(`${BASE}/api/schedules?from=GMR&to=ML&date=${wibDate(d)}`);
+    trips.push(...r.json('trips').filter((t) => t.tripId.startsWith('GJY-')).map((t) => t.tripId));
   }
   return { tokens, trips };
 }
 
-const SEG = ['SGU', 'MR', 'JG', 'KTS', 'NJ', 'MN', 'NGW', 'SLO', 'YK'];
+const SEG = ['GMR', 'CN', 'PWT', 'YK', 'SLO', 'MN', 'KD', 'BL', 'ML'];
 const QUERY = `query($id:ID!,$f:String!,$t:String!){seatMap(tripId:$id,from:$f,to:$t){available coaches{available seats{id status}}}}`;
 
 export function browse(data) {
@@ -82,7 +82,8 @@ export function browse(data) {
   const g = http.post(`${BASE}/graphql`, JSON.stringify({ query: QUERY, variables: { id: trip, f: SEG[a], t: SEG[b] } }), { headers: { 'content-type': 'application/json' }, tags: { name: 'graphql_seatmap' } });
   seatMapLatency.add(g.timings.duration);
   serverErrors.add(g.status >= 500);
-  check(g, { 'seatMap 200': (r) => r.status === 200 && r.json('data.seatMap.available') >= 0 });
+  const okMap = check(g, { 'seatMap 200': (r) => r.status === 200 && r.json('data.seatMap.available') >= 0 });
+  if (!okMap && __ENV.DEBUG_FAIL && exec.scenario.iterationInTest % 200 === 0) console.warn(`seatMap gagal ${g.status} ${SEG[a]}-${SEG[b]} ${String(g.body).slice(0, 160)}`);
   sleep(0.3);
 }
 
@@ -100,15 +101,16 @@ export function contention(data) {
   serverErrors.add(r.status >= 500);
   if (r.status === 201) lockWon.add(1);
   if (r.status === 409) lockConflict.add(1);
-  check(r, { 'lock 201/409/429': (x) => [201, 409, 429].includes(x.status) });
+  const okLock = check(r, { 'lock 201/409/429': (x) => [201, 409, 429].includes(x.status) });
+  if (!okLock && __ENV.DEBUG_FAIL && exec.scenario.iterationInTest % 100 === 0) console.warn(`lock gagal ${r.status} ${String(r.body).slice(0, 160)}`);
 }
 
 export function journey(data) {
   const token = data.tokens[(exec.vu.idInTest + 7) % data.tokens.length];
   const trip = data.trips[randomIntBetween(0, data.trips.length - 1)];
-  const seat = `PRM${randomIntBetween(1, 2)}-${randomIntBetween(1, 16)}${'ABCD'[randomIntBetween(0, 3)]}`;
+  const seat = `EKS${randomIntBetween(3, 4)}-${randomIntBetween(1, 13)}${'ABCD'[randomIntBetween(0, 3)]}`;
   const auth = { 'content-type': 'application/json', authorization: `Bearer ${token}` };
-  const l = http.post(`${BASE}/api/locks`, JSON.stringify({ tripId: trip, from: 'SGU', to: 'MN', seats: [seat] }), { headers: { ...auth, 'idempotency-key': uuidv4() }, tags: { name: 'lock' }, responseCallback: http.expectedStatuses(201, 409, 429) });
+  const l = http.post(`${BASE}/api/locks`, JSON.stringify({ tripId: trip, from: 'GMR', to: 'MN', seats: [seat] }), { headers: { ...auth, 'idempotency-key': uuidv4() }, tags: { name: 'lock' }, responseCallback: http.expectedStatuses(201, 409, 429) });
   serverErrors.add(l.status >= 500);
   if (l.status !== 201) { sleep(0.2); return; }
   const b = http.post(`${BASE}/api/bookings`, JSON.stringify({ lockId: l.json('id'), passengers: [{ seatId: seat, name: 'Penumpang Beban', age: 30, nik: '3578015203990001' }] }), { headers: { ...auth, 'idempotency-key': uuidv4() }, tags: { name: 'booking' } });

@@ -30,7 +30,7 @@ Status: **Selesai** = ada dan sudah diuji di mesin ini. **Perlu tindakan Anda** 
 | OAuth2 Authorization Code + PKCE | Selesai | `services/auth/index.js` |
 | JWT berumur pendek sekitar 15 menit | Selesai | `ACCESS_TOKEN_TTL_SECONDS=900`, uji W8-03 |
 | Refresh token dengan rotasi | Selesai | Uji S-14, S-15 |
-| RBAC scope customer, operator, admin | Selesai | `services/auth/rules.js` |
+| RBAC scope customer, masinis (peran operator di rancangan awal), admin | Selesai | `services/auth/rules.js` |
 | Pengecekan kepemilikan di server (IDOR) | Selesai | Uji S-01 sampai S-05 |
 | Gateway: validasi token, rate limit per user/IP, validasi skema, CORS terbatas | Selesai | `services/gateway`, `tests/weeks/week09.js` |
 | mTLS antar service, sertifikat per service | Selesai | `scripts/gen-certs.js`, uji S-43 sampai S-49 |
@@ -65,7 +65,8 @@ Status: **Selesai** = ada dan sudah diuji di mesin ini. **Perlu tindakan Anda** 
 | Skema GraphQL dengan contoh query/mutation | Selesai | `docs/schema.graphql`, `docs/graphql-examples.md` |
 | README: cara akses, daftar endpoint, cara autentikasi | Selesai | `README.md` |
 | Daftar environment variable dengan placeholder | Selesai | `.env.example`, `docs/04-environment-variables.md` |
-| URL deployment stabil (Render/Vercel/Cloudflare) | **Perlu tindakan Anda** | Berkas siap (`render.yaml`, `Dockerfile`), tetapi deploy butuh akun kelompok. Lihat `docs/05-deployment.md` |
+| URL deployment stabil (Render/Vercel/Cloudflare) | Selesai | https://rangkai-production.up.railway.app (Railway, platform PaaS setara Render). Database di volume persisten, health check `/healthz` |
+| Pembagian tugas anggota | Selesai | `docs/05-pembagian-tugas.md` |
 
 ## Software Testing
 
@@ -92,7 +93,7 @@ Status: **Selesai** = ada dan sudah diuji di mesin ini. **Perlu tindakan Anda** 
 |---|---|---|
 | Struktur jurnal dengan label penulis | Selesai sebagai draf | `docs/laporan-gabungan-draft.md`. Bagian kelompok penguji dikosongkan untuk Kelompok B |
 | Tabel komponen, mekanisme, alasan | Selesai | `docs/01-rancangan-keamanan.md` |
-| Laporan desain individual saat UAS | **Perlu tindakan Anda** | Tiap anggota menulis sendiri, bahan ada di `docs/` |
+| Laporan desain individual saat UAS | Disiapkan tiap anggota | Bahan ada di `docs/`, pembagian bab di `docs/05-pembagian-tugas.md` |
 
 ## Hal yang perlu Anda perhatikan
 

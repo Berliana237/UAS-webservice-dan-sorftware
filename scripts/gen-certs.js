@@ -10,7 +10,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const forge = require('node-forge');
 
-const SERVICES = ['gateway', 'registry', 'broker', 'auth', 'catalog', 'booking', 'payment', 'notification', 'intruder'];
+const SERVICES = ['gateway', 'registry', 'broker', 'auth', 'catalog', 'booking', 'payment', 'notification', 'support', 'intruder'];
 const pki = forge.pki;
 
 function keyPair() {
@@ -68,4 +68,4 @@ function generateCerts(dir) {
   write('rogue', makeLeaf('gateway', rogueCa));
 }
 
-module.exports = { generateCerts };
+module.exports = { generateCerts, SERVICES };

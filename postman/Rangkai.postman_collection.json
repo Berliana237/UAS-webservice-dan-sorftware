@@ -55,6 +55,106 @@
           ]
         },
         {
+          "name": "Daftarkan pelanggan uji 1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sinta Maharani\",\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{seedPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const id = String(Date.now());",
+                  "pm.collectionVariables.set('runId', id);",
+                  "pm.collectionVariables.set('customerEmail', 'pelanggan.' + id + '@uji.rangkai');",
+                  "pm.collectionVariables.set('customer2Email', 'pelanggan2.' + id + '@uji.rangkai');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Daftarkan pelanggan uji 2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bima Pelanggan\",\n  \"email\": \"{{customer2Email}}\",\n  \"password\": \"{{seedPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Pelanggan: 1 Authorize (PKCE)",
           "request": {
             "method": "GET",
@@ -427,7 +527,7 @@
           ]
         },
         {
-          "name": "Operator: 1 Authorize (PKCE)",
+          "name": "Masinis: 1 Authorize (PKCE)",
           "request": {
             "method": "GET",
             "header": [
@@ -437,7 +537,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/oauth/authorize?response_type=code&client_id=rangkai-postman&redirect_uri={{baseUrl}}/auth/callback&code_challenge={{operChallenge}}&code_challenge_method=S256&state={{operState}}",
+              "raw": "{{baseUrl}}/oauth/authorize?response_type=code&client_id=rangkai-postman&redirect_uri={{baseUrl}}/auth/callback&code_challenge={{masChallenge}}&code_challenge_method=S256&state={{masState}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -460,7 +560,7 @@
                 },
                 {
                   "key": "code_challenge",
-                  "value": "{{operChallenge}}"
+                  "value": "{{masChallenge}}"
                 },
                 {
                   "key": "code_challenge_method",
@@ -468,7 +568,7 @@
                 },
                 {
                   "key": "state",
-                  "value": "{{operState}}"
+                  "value": "{{masState}}"
                 }
               ]
             }
@@ -481,9 +581,9 @@
                 "exec": [
                   "const verifier = CryptoJS.lib.WordArray.random(48).toString(CryptoJS.enc.Base64).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');",
                   "const challenge = CryptoJS.SHA256(verifier).toString(CryptoJS.enc.Base64).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');",
-                  "pm.collectionVariables.set('operVerifier', verifier);",
-                  "pm.collectionVariables.set('operChallenge', challenge);",
-                  "pm.collectionVariables.set('operState', 'state' + Date.now());"
+                  "pm.collectionVariables.set('masVerifier', verifier);",
+                  "pm.collectionVariables.set('masChallenge', challenge);",
+                  "pm.collectionVariables.set('masState', 'state' + Date.now());"
                 ]
               }
             },
@@ -494,14 +594,14 @@
                 "exec": [
                   "pm.test('Status 200', () => pm.response.to.have.status(200));",
                   "",
-                  "pm.collectionVariables.set('operAuthRequest', pm.response.json().auth_request);"
+                  "pm.collectionVariables.set('masAuthRequest', pm.response.json().auth_request);"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Operator: 2 Login",
+          "name": "Masinis: 2 Login",
           "request": {
             "method": "POST",
             "header": [
@@ -523,7 +623,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"auth_request\": \"{{operAuthRequest}}\",\n  \"email\": \"{{operatorEmail}}\",\n  \"password\": \"{{seedPassword}}\"\n}",
+              "raw": "{\n  \"auth_request\": \"{{masAuthRequest}}\",\n  \"email\": \"{{masinisEmail}}\",\n  \"password\": \"{{seedPassword}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -540,15 +640,15 @@
                   "pm.test('Status 200', () => pm.response.to.have.status(200));",
                   "",
                   "const j = pm.response.json();",
-                  "pm.test('State sama dengan yang dikirim', () => pm.expect(j.state).to.eql(pm.collectionVariables.get('operState')));",
-                  "pm.collectionVariables.set('operCode', j.code);"
+                  "pm.test('State sama dengan yang dikirim', () => pm.expect(j.state).to.eql(pm.collectionVariables.get('masState')));",
+                  "pm.collectionVariables.set('masCode', j.code);"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Operator: 3 Tukar kode dengan token",
+          "name": "Masinis: 3 Tukar kode dengan token",
           "request": {
             "method": "POST",
             "header": [],
@@ -578,12 +678,12 @@
                 },
                 {
                   "key": "code",
-                  "value": "{{operCode}}",
+                  "value": "{{masCode}}",
                   "type": "text"
                 },
                 {
                   "key": "code_verifier",
-                  "value": "{{operVerifier}}",
+                  "value": "{{masVerifier}}",
                   "type": "text"
                 },
                 {
@@ -605,8 +705,8 @@
                   "const j = pm.response.json();",
                   "pm.test('Dapat access token dan refresh token', () => { pm.expect(j.access_token).to.be.a('string'); pm.expect(j.refresh_token).to.be.a('string'); });",
                   "pm.test('Token berumur 15 menit', () => pm.expect(j.expires_in).to.eql(900));",
-                  "pm.collectionVariables.set('operatorToken', j.access_token);",
-                  "pm.collectionVariables.set('operatorTokenRefresh', j.refresh_token);"
+                  "pm.collectionVariables.set('masinisToken', j.access_token);",
+                  "pm.collectionVariables.set('masinisTokenRefresh', j.refresh_token);"
                 ]
               }
             }
@@ -799,12 +899,12 @@
           ]
         },
         {
-          "name": "Pilih perjalanan Arunika",
+          "name": "Pilih perjalanan Gajayana",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/schedules?from=SGU&to=YK&date={{tripDate}}",
+              "raw": "{{baseUrl}}/api/schedules?from=GMR&to=ML&date={{tripDate}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -815,11 +915,11 @@
               "query": [
                 {
                   "key": "from",
-                  "value": "SGU"
+                  "value": "GMR"
                 },
                 {
                   "key": "to",
-                  "value": "YK"
+                  "value": "ML"
                 },
                 {
                   "key": "date",
@@ -838,9 +938,12 @@
                   "const d = new Date(Date.now() + day * 86400000 + 7 * 3600000).toISOString().slice(0, 10);",
                   "pm.collectionVariables.set('tripDate', d);",
                   "const rnd = (n) => 1 + Math.floor(Math.random() * n);",
-                  "pm.collectionVariables.set('seatA', 'PRM1-' + rnd(16) + 'A');",
-                  "pm.collectionVariables.set('seatB', 'PRM2-' + rnd(16) + 'B');",
-                  "pm.collectionVariables.set('seatC', 'EKS1-' + rnd(12) + 'C');",
+                  "// Gajayana: LUX1 lalu EKS1 sampai EKS8, tiap gerbong eksekutif 13 baris (A-D). Gerbong dipisah agar kursi tidak bentrok.",
+                  "pm.collectionVariables.set('seatA', 'EKS' + rnd(2) + '-' + rnd(13) + 'A');",
+                  "pm.collectionVariables.set('seatB', 'EKS' + (2 + rnd(2)) + '-' + rnd(13) + 'B');",
+                  "pm.collectionVariables.set('seatC', 'EKS' + (4 + rnd(2)) + '-' + rnd(13) + 'C');",
+                  "pm.collectionVariables.set('seatD', 'EKS' + (6 + rnd(1)) + '-' + rnd(13) + 'D');",
+                  "pm.collectionVariables.set('seatE', 'EKS' + (6 + rnd(2)) + '-' + rnd(13) + 'A');",
                   "pm.collectionVariables.set('runId', String(Date.now()));"
                 ]
               }
@@ -852,8 +955,8 @@
                 "exec": [
                   "pm.test('Status 200', () => pm.response.to.have.status(200));",
                   "",
-                  "const t = pm.response.json().trips.find((x) => x.tripId.startsWith('ARN-'));",
-                  "pm.test('Perjalanan Arunika ditemukan', () => pm.expect(t).to.be.an('object'));",
+                  "const t = pm.response.json().trips.find((x) => x.tripId.startsWith('GJY-'));",
+                  "pm.test('Perjalanan Gajayana ditemukan', () => pm.expect(t).to.be.an('object'));",
                   "pm.collectionVariables.set('tripId', t.tripId);"
                 ]
               }
@@ -2157,13 +2260,13 @@
               ]
             },
             {
-              "name": "Operator ke audit",
+              "name": "Masinis ke audit",
               "request": {
                 "method": "GET",
                 "header": [
                   {
                     "key": "Authorization",
-                    "value": "Bearer {{operatorToken}}"
+                    "value": "Bearer {{masinisToken}}"
                   }
                 ],
                 "url": {
@@ -3839,7 +3942,7 @@
               "mode": "graphql",
               "graphql": {
                 "query": "query Cari($from: String!, $to: String!, $date: String!) {\n  searchTrips(from: $from, to: $to, date: $date) {\n    trip { id trainName status }\n    from { departAt station { name } }\n    to { arriveAt station { name } }\n    durationMinutes km availableSeats\n    fares { seatClass adult }\n  }\n}",
-                "variables": "{\n  \"from\": \"SGU\",\n  \"to\": \"MN\",\n  \"date\": \"{{tripDate}}\"\n}"
+                "variables": "{\n  \"from\": \"GMR\",\n  \"to\": \"MN\",\n  \"date\": \"{{tripDate}}\"\n}"
               }
             }
           },
@@ -3875,7 +3978,7 @@
             "body": {
               "mode": "graphql",
               "graphql": {
-                "query": "query Peta($id: ID!) {\n  seatMap(tripId: $id, from: \"SGU\", to: \"MN\") {\n    fromIndex toIndex km available total\n    segments { index from { name } to { name } km }\n    coaches { coach { code seatClass } adultFare available seats { id status segments { index status } } }\n  }\n}",
+                "query": "query Peta($id: ID!) {\n  seatMap(tripId: $id, from: \"GMR\", to: \"MN\") {\n    fromIndex toIndex km available total\n    segments { index from { name } to { name } km }\n    coaches { coach { code seatClass } adultFare available seats { id status segments { index status } } }\n  }\n}",
                 "variables": "{\n  \"id\": \"{{tripId}}\"\n}"
               }
             }
@@ -3889,8 +3992,8 @@
                   "pm.test('Status 200', () => pm.response.to.have.status(200));",
                   "",
                   "const m = pm.response.json().data.seatMap;",
-                  "pm.test('Ruas Surabaya-Madiun adalah segmen 0 sampai 5', () => { pm.expect(m.fromIndex).to.eql(0); pm.expect(m.toIndex).to.eql(5); });",
-                  "pm.test('Lima gerbong', () => pm.expect(m.coaches.length).to.eql(5));"
+                  "pm.test('Ruas Gambir-Madiun adalah segmen 0 sampai 5', () => { pm.expect(m.fromIndex).to.eql(0); pm.expect(m.toIndex).to.eql(5); });",
+                  "pm.test('Sembilan gerbong', () => pm.expect(m.coaches.length).to.eql(9));"
                 ]
               }
             }
@@ -3914,7 +4017,7 @@
             "body": {
               "mode": "graphql",
               "graphql": {
-                "query": "query Ringkas($id: ID!) { seatMap(tripId: $id, from: \"SGU\", to: \"YK\") { available total } }",
+                "query": "query Ringkas($id: ID!) { seatMap(tripId: $id, from: \"GMR\", to: \"YK\") { available total } }",
                 "variables": "{\n  \"id\": \"{{tripId}}\"\n}"
               }
             }
@@ -4060,7 +4163,7 @@
             "body": {
               "mode": "graphql",
               "graphql": {
-                "query": "query($id: ID!) { seatMap(tripId: $id, from: \"MN\", to: \"SGU\") { available } }",
+                "query": "query($id: ID!) { seatMap(tripId: $id, from: \"MN\", to: \"GMR\") { available } }",
                 "variables": "{\n  \"id\": \"{{tripId}}\"\n}"
               }
             }
@@ -4118,13 +4221,13 @@
           ]
         },
         {
-          "name": "Mutation: operator menandai terlambat",
+          "name": "Mutation: admin menandai terlambat",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{operatorToken}}"
+                "value": "Bearer {{adminToken}}"
               }
             ],
             "url": {
@@ -4166,7 +4269,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{operatorToken}}"
+                "value": "Bearer {{adminToken}}"
               }
             ],
             "url": {
@@ -4244,7 +4347,7 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/api/schedules?from=SGU&to=MN&date={{tripDate}}",
+                  "raw": "{{baseUrl}}/api/schedules?from=GMR&to=MN&date={{tripDate}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -4255,7 +4358,7 @@
                   "query": [
                     {
                       "key": "from",
-                      "value": "SGU"
+                      "value": "GMR"
                     },
                     {
                       "key": "to",
@@ -4277,7 +4380,7 @@
                       "pm.test('Status 200', () => pm.response.to.have.status(200));",
                       "",
                       "const t = pm.response.json().trips.find((x) => x.tripId === pm.collectionVariables.get('tripId'));",
-                      "pm.test('Tarif eksekutif sesuai rumus', () => pm.expect(t.fares.find((f) => f.seatClass === 'EKSEKUTIF').adult).to.eql(189000));"
+                      "pm.test('Tarif eksekutif sesuai rumus', () => pm.expect(t.fares.find((f) => f.seatClass === 'EKSEKUTIF').adult).to.eql(650000));"
                     ]
                   }
                 }
@@ -4289,7 +4392,7 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/api/schedules?from=SGU&to=MN&date=besok",
+                  "raw": "{{baseUrl}}/api/schedules?from=GMR&to=MN&date=besok",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -4300,7 +4403,7 @@
                   "query": [
                     {
                       "key": "from",
-                      "value": "SGU"
+                      "value": "GMR"
                     },
                     {
                       "key": "to",
@@ -4331,7 +4434,7 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/api/schedules?from=SGU&to=SGU&date={{tripDate}}",
+                  "raw": "{{baseUrl}}/api/schedules?from=GMR&to=GMR&date={{tripDate}}",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -4342,11 +4445,11 @@
                   "query": [
                     {
                       "key": "from",
-                      "value": "SGU"
+                      "value": "GMR"
                     },
                     {
                       "key": "to",
-                      "value": "SGU"
+                      "value": "GMR"
                     },
                     {
                       "key": "date",
@@ -4435,7 +4538,7 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/api/trips/{{tripId}}/seats?from=SGU&to=MN",
+                  "raw": "{{baseUrl}}/api/trips/{{tripId}}/seats?from=GMR&to=MN",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -4448,7 +4551,7 @@
                   "query": [
                     {
                       "key": "from",
-                      "value": "SGU"
+                      "value": "GMR"
                     },
                     {
                       "key": "to",
@@ -4470,13 +4573,13 @@
               ]
             },
             {
-              "name": "Operator membuat perjalanan",
+              "name": "Admin membuat perjalanan tambahan",
               "request": {
                 "method": "POST",
                 "header": [
                   {
                     "key": "Authorization",
-                    "value": "Bearer {{operatorToken}}"
+                    "value": "Bearer {{adminToken}}"
                   },
                   {
                     "key": "Content-Type",
@@ -4496,7 +4599,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"lineCode\": \"ARN\",\n  \"serviceDate\": \"{{newDate}}\",\n  \"departureTime\": \"{{newTime}}\"\n}",
+                  "raw": "{\n  \"trainId\": \"GJY\",\n  \"direction\": \"A\",\n  \"serviceDate\": \"{{newDate}}\",\n  \"departureTime\": \"{{newTime}}\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -4558,7 +4661,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"lineCode\": \"ARN\",\n  \"serviceDate\": \"{{newDate}}\",\n  \"departureTime\": \"23:59\"\n}",
+                  "raw": "{\n  \"trainId\": \"GJY\",\n  \"direction\": \"A\",\n  \"serviceDate\": \"{{newDate}}\",\n  \"departureTime\": \"23:59\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -4585,7 +4688,7 @@
           "description": "",
           "item": [
             {
-              "name": "Tahan kursi: Surabaya ke Madiun",
+              "name": "Tahan kursi: Gambir ke Madiun",
               "request": {
                 "method": "POST",
                 "header": [
@@ -4615,7 +4718,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"SGU\",\n  \"to\": \"MN\",\n  \"seats\": [\n    \"{{seatA}}\"\n  ]\n}",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"GMR\",\n  \"to\": \"MN\",\n  \"seats\": [\n    \"{{seatA}}\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -4671,7 +4774,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"JG\",\n  \"to\": \"NGW\",\n  \"seats\": [\n    \"{{seatA}}\"\n  ]\n}",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"PWT\",\n  \"to\": \"KD\",\n  \"seats\": [\n    \"{{seatA}}\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -4696,7 +4799,7 @@
               ]
             },
             {
-              "name": "Kursi sama, Madiun ke Yogyakarta: berhasil",
+              "name": "Kursi sama, Madiun ke Malang: berhasil",
               "request": {
                 "method": "POST",
                 "header": [
@@ -4726,7 +4829,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"MN\",\n  \"to\": \"YK\",\n  \"seats\": [\n    \"{{seatA}}\"\n  ]\n}",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"MN\",\n  \"to\": \"ML\",\n  \"seats\": [\n    \"{{seatA}}\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -4754,7 +4857,7 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/api/trips/{{tripId}}/availability?from=SGU&to=MN",
+                  "raw": "{{baseUrl}}/api/trips/{{tripId}}/availability?from=GMR&to=MN",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -4767,7 +4870,7 @@
                   "query": [
                     {
                       "key": "from",
-                      "value": "SGU"
+                      "value": "GMR"
                     },
                     {
                       "key": "to",
@@ -4924,7 +5027,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"SGU\",\n  \"to\": \"MR\",\n  \"seats\": [\n    \"{{seatB}}\"\n  ]\n}",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"GMR\",\n  \"to\": \"CN\",\n  \"seats\": [\n    \"{{seatB}}\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -4975,7 +5078,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"SGU\",\n  \"to\": \"MR\",\n  \"seats\": [\n    \"{{seatB}}\"\n  ]\n}",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"GMR\",\n  \"to\": \"CN\",\n  \"seats\": [\n    \"{{seatB}}\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -5028,7 +5131,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"SGU\",\n  \"to\": \"MR\",\n  \"seats\": [\n    \"{{seatB}}\"\n  ]\n}",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"GMR\",\n  \"to\": \"CN\",\n  \"seats\": [\n    \"{{seatB}}\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -5082,7 +5185,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"SGU\",\n  \"to\": \"JG\",\n  \"seats\": [\n    \"{{seatB}}\"\n  ]\n}",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"GMR\",\n  \"to\": \"PWT\",\n  \"seats\": [\n    \"{{seatB}}\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -5170,7 +5273,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"MN\",\n  \"to\": \"SGU\",\n  \"seats\": [\n    \"{{seatB}}\"\n  ]\n}",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"MN\",\n  \"to\": \"GMR\",\n  \"seats\": [\n    \"{{seatB}}\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -5223,7 +5326,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"SGU\",\n  \"to\": \"MR\",\n  \"seats\": [\n    \"ZZZ1-1A\"\n  ]\n}",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"GMR\",\n  \"to\": \"CN\",\n  \"seats\": [\n    \"ZZZ1-1A\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -5244,7 +5347,7 @@
               ]
             },
             {
-              "name": "Lima kursi (BVA)",
+              "name": "Kursi kembar ditolak",
               "request": {
                 "method": "POST",
                 "header": [
@@ -5274,7 +5377,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"SGU\",\n  \"to\": \"MR\",\n  \"seats\": [\n    \"EKS1-1A\",\n    \"EKS1-1B\",\n    \"EKS1-1C\",\n    \"EKS1-1D\",\n    \"EKS1-2A\"\n  ]\n}",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"GMR\",\n  \"to\": \"CN\",\n  \"seats\": [\n    \"EKS1-1A\",\n    \"EKS1-1A\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -5289,6 +5392,59 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('Status 422', () => pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delapan kursi sekaligus diterima (tanpa batas jumlah)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{$guid}}"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/locks",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "locks"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"GMR\",\n  \"to\": \"CN\",\n  \"seats\": [\n    \"LUX1-1A\",\n    \"LUX1-1D\",\n    \"LUX1-2A\",\n    \"LUX1-2D\",\n    \"LUX1-3A\",\n    \"LUX1-3D\",\n    \"LUX1-4A\",\n    \"LUX1-4D\"\n  ],\n  \"ttlSeconds\": 3\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                      "",
+                      "pm.test('Delapan kursi ditahan', () => pm.expect(pm.response.json().seats.length).to.eql(8));"
                     ]
                   }
                 }
@@ -5325,7 +5481,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"SLO\",\n  \"to\": \"YK\",\n  \"seats\": [\n    \"{{seatC}}\"\n  ],\n  \"ttlSeconds\": 3\n}",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"YK\",\n  \"to\": \"SLO\",\n  \"seats\": [\n    \"{{seatC}}\"\n  ],\n  \"ttlSeconds\": 3\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -5424,7 +5580,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"SLO\",\n  \"to\": \"YK\",\n  \"seats\": [\n    \"{{seatC}}\"\n  ],\n  \"ttlSeconds\": 3\n}",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"YK\",\n  \"to\": \"SLO\",\n  \"seats\": [\n    \"{{seatC}}\"\n  ],\n  \"ttlSeconds\": 3\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -5557,7 +5713,7 @@
               ]
             },
             {
-              "name": "Bayi tidak perlu kursi",
+              "name": "Usia 121 ditolak (BVA)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -5587,7 +5743,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"lockId\": \"{{lockA}}\",\n  \"passengers\": [\n    {\n      \"seatId\": \"{{seatA}}\",\n      \"name\": \"Bayi\",\n      \"age\": 2\n    }\n  ]\n}",
+                  "raw": "{\n  \"lockId\": \"{{lockA}}\",\n  \"passengers\": [\n    {\n      \"seatId\": \"{{seatA}}\",\n      \"name\": \"Kakek Uji\",\n      \"age\": 121,\n      \"nik\": \"3578015203990001\"\n    }\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -5601,9 +5757,7 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('Status 422', () => pm.response.to.have.status(422));",
-                      "",
-                      "pm.test('INFANT_NO_SEAT', () => pm.expect(pm.response.json().error.code).to.eql('INFANT_NO_SEAT'));"
+                      "pm.test('Status 422', () => pm.response.to.have.status(422));"
                     ]
                   }
                 }
@@ -6440,7 +6594,7 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{baseUrl}}/api/trips/{{tripId}}/availability?from=SGU&to=MN",
+                  "raw": "{{baseUrl}}/api/trips/{{tripId}}/availability?from=GMR&to=MN",
                   "host": [
                     "{{baseUrl}}"
                   ],
@@ -6453,7 +6607,7 @@
                   "query": [
                     {
                       "key": "from",
-                      "value": "SGU"
+                      "value": "GMR"
                     },
                     {
                       "key": "to",
@@ -6610,13 +6764,13 @@
               ]
             },
             {
-              "name": "Manifest untuk operator",
+              "name": "Manifest untuk admin",
               "request": {
                 "method": "GET",
                 "header": [
                   {
                     "key": "Authorization",
-                    "value": "Bearer {{operatorToken}}"
+                    "value": "Bearer {{adminToken}}"
                   }
                 ],
                 "url": {
@@ -6690,7 +6844,7 @@
                 "header": [
                   {
                     "key": "Authorization",
-                    "value": "Bearer {{operatorToken}}"
+                    "value": "Bearer {{masinisToken}}"
                   },
                   {
                     "key": "Content-Type",
@@ -6863,7 +7017,7 @@
                 "header": [
                   {
                     "key": "Authorization",
-                    "value": "Bearer {{operatorToken}}"
+                    "value": "Bearer {{adminToken}}"
                   },
                   {
                     "key": "Content-Type",
@@ -6981,7 +7135,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"SGU\",\n  \"to\": \"MN\",\n  \"seats\": [\n    \"{{seatA}}\"\n  ],\n  \"ttlSeconds\": 3\n}",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"GMR\",\n  \"to\": \"MN\",\n  \"seats\": [\n    \"{{seatA}}\"\n  ],\n  \"ttlSeconds\": 3\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -7002,13 +7156,13 @@
               ]
             },
             {
-              "name": "Operator membatalkan perjalanan",
+              "name": "Admin membatalkan perjalanan",
               "request": {
                 "method": "PATCH",
                 "header": [
                   {
                     "key": "Authorization",
-                    "value": "Bearer {{operatorToken}}"
+                    "value": "Bearer {{adminToken}}"
                   },
                   {
                     "key": "Content-Type",
@@ -7082,7 +7236,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"tripId\": \"{{newTripId}}\",\n  \"from\": \"SGU\",\n  \"to\": \"MN\",\n  \"seats\": [\n    \"EKS1-1A\"\n  ]\n}",
+                  "raw": "{\n  \"tripId\": \"{{newTripId}}\",\n  \"from\": \"GMR\",\n  \"to\": \"MN\",\n  \"seats\": [\n    \"EKS1-1A\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -7196,6 +7350,3914 @@
                       "pm.test('Status 200', () => pm.response.to.have.status(200));",
                       "",
                       "pm.test('Webhook palsu tercatat', () => pm.expect(pm.response.json().alerts.map((a) => a.kind)).to.include('webhook_rejected'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Revisi - Profil, Admin, Masinis, Pembayaran, Bantuan",
+      "description": "Endpoint yang ditambahkan pada revisi: data KAI, profil, manajemen pengguna dan data operasional oleh admin, jadwal dinas masinis, transfer VA dengan bukti, QRIS, notifikasi, Pusat Bantuan, dan API partner.",
+      "item": [
+        {
+          "name": "Data publik",
+          "description": "",
+          "item": [
+            {
+              "name": "Daftar kereta aktif",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/trains",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "trains"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "const t = pm.response.json().trains;",
+                      "pm.test('Delapan kereta KAI', () => pm.expect(t.length).to.eql(8));",
+                      "pm.test('Gajayana ada', () => pm.expect(t.map((x) => x.name)).to.include('Gajayana'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Kebijakan tarif",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/pricing",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "pricing"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Diskon lansia 0 sampai 100', () => pm.expect(pm.response.json().seniorDiscountPercent).to.be.within(0, 100));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Skema GraphQL (SDL)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/graphql/schema",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "graphql",
+                    "schema"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Memuat searchTrips', () => pm.expect(pm.response.text()).to.include('searchTrips'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Profil pengguna",
+          "description": "",
+          "item": [
+            {
+              "name": "Ubah nomor HP sendiri",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customer2Token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/auth/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "auth",
+                    "me"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"081299990000\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Nomor tersimpan', () => pm.expect(pm.response.json().user.phone).to.eql('081299990000'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "NIK profil salah format",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customer2Token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/auth/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "auth",
+                    "me"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nik\": \"123\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 422', () => pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Field asing di profil (mass assignment)",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customer2Token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/auth/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "auth",
+                    "me"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"role\": \"admin\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 422', () => pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Ganti sandi: sandi lama salah",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customer2Token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/auth/me/password",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "auth",
+                    "me",
+                    "password"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"currentPassword\": \"BukanSandi123\",\n  \"newPassword\": \"SandiBaru12345\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 422', () => pm.response.to.have.status(422));",
+                      "",
+                      "pm.test('Ditunjuk field currentPassword', () => pm.expect(pm.response.json().error.details.fields).to.have.property('currentPassword'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Admin: manajemen pengguna",
+          "description": "",
+          "item": [
+            {
+              "name": "Pelanggan tidak boleh membuat akun",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "users"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Coba\",\n  \"email\": \"coba.{{runId}}@rangkai.test\",\n  \"password\": \"Masinis12345\",\n  \"role\": \"masinis\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Admin membuat akun masinis",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "users"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Masinis Uji\",\n  \"email\": \"masinis.{{runId}}@rangkai.test\",\n  \"password\": \"Masinis12345\",\n  \"role\": \"masinis\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                      "",
+                      "const u = pm.response.json().user;",
+                      "pm.test('Peran masinis', () => pm.expect(u.role).to.eql('masinis'));",
+                      "pm.test('Hash sandi tidak dikembalikan', () => pm.expect(pm.response.text()).to.not.include('scrypt'));",
+                      "pm.collectionVariables.set('newUserId', u.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Detail pengguna",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/users/{{newUserId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "users",
+                    "{{newUserId}}"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Ubah data pengguna",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/users/{{newUserId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "users",
+                    "{{newUserId}}"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"081300009999\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Ganti peran menjadi customer",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/users/{{newUserId}}/role",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "users",
+                    "{{newUserId}}",
+                    "role"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"role\": \"customer\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Peran berubah', () => pm.expect(pm.response.json().user.role).to.eql('customer'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Peran tidak dikenal ditolak",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/users/{{newUserId}}/role",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "users",
+                    "{{newUserId}}",
+                    "role"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"role\": \"operator\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 422', () => pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Admin mengganti sandi pengguna",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/users/{{newUserId}}/password",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "users",
+                    "{{newUserId}}",
+                    "password"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"password\": \"GantiSandi123\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Hapus pengguna",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/users/{{newUserId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "users",
+                    "{{newUserId}}"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Admin: data operasional",
+          "description": "",
+          "item": [
+            {
+              "name": "Daftar stasiun (admin)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/stations",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "stations"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const L = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';",
+                      "const pick = () => L[Math.floor(Math.random() * 26)];",
+                      "pm.collectionVariables.set('stationCode', 'Q' + pick() + pick() + pick());",
+                      "pm.collectionVariables.set('trainCode', 'Z' + pick() + pick());",
+                      "pm.collectionVariables.set('trainNumber', 'KA ' + (9000 + Math.floor(Math.random() * 999)));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('33 stasiun atau lebih', () => pm.expect(pm.response.json().stations.length).to.be.at.least(33));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Tambah stasiun",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/stations",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "stations"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"{{stationCode}}\",\n  \"name\": \"Stasiun Uji Postman\",\n  \"city\": \"Kota Uji\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Kode stasiun ganda",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/stations",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "stations"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"{{stationCode}}\",\n  \"name\": \"Stasiun Uji Postman\",\n  \"city\": \"Kota Uji\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                      "",
+                      "pm.test('STATION_EXISTS', () => pm.expect(pm.response.json().error.code).to.eql('STATION_EXISTS'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Nonaktifkan stasiun",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/stations/{{stationCode}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "stations",
+                    "{{stationCode}}"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"active\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Nonaktif', () => pm.expect(pm.response.json().station.active).to.eql(false));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Hapus stasiun yang tidak dipakai",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/stations/{{stationCode}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "stations",
+                    "{{stationCode}}"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Stasiun yang dipakai rute tidak bisa dihapus",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/stations/GMR",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "stations",
+                    "GMR"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                      "",
+                      "pm.test('STATION_IN_USE', () => pm.expect(pm.response.json().error.code).to.eql('STATION_IN_USE'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Daftar kereta (admin)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/trains",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "trains"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Detail kereta Gajayana",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/trains/GJY",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "trains",
+                    "GJY"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Nama Gajayana', () => pm.expect(pm.response.json().train.name).to.eql('Gajayana'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Buat kereta uji",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/trains",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "trains"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id\": \"{{trainCode}}\",\n  \"number\": \"{{trainNumber}}\",\n  \"name\": \"Kereta Uji Postman\",\n  \"classes\": [\n    \"EKONOMI\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                      "",
+                      "pm.test('Dibuat nonaktif', () => pm.expect(pm.response.json().train.enabled).to.eql(false));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Aktifkan sebelum lengkap ditolak",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/trains/{{trainCode}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "trains",
+                    "{{trainCode}}"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"enabled\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                      "",
+                      "pm.test('TRAIN_INCOMPLETE', () => pm.expect(pm.response.json().error.code).to.eql('TRAIN_INCOMPLETE'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Atur rute kereta uji",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/trains/{{trainCode}}/route",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "trains",
+                    "{{trainCode}}",
+                    "route"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"stops\": [\n    {\n      \"code\": \"GMR\",\n      \"minuteOffset\": 0,\n      \"km\": 0\n    },\n    {\n      \"code\": \"BKS\",\n      \"minuteOffset\": 30,\n      \"km\": 28\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Rute dengan km mundur ditolak",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/trains/{{trainCode}}/route",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "trains",
+                    "{{trainCode}}",
+                    "route"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"stops\": [\n    {\n      \"code\": \"GMR\",\n      \"minuteOffset\": 0,\n      \"km\": 0\n    },\n    {\n      \"code\": \"BKS\",\n      \"minuteOffset\": 30,\n      \"km\": 0\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 422', () => pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Atur tarif kereta uji",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/trains/{{trainCode}}/fares",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "trains",
+                    "{{trainCode}}",
+                    "fares"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fares\": [\n    {\n      \"seatClass\": \"EKONOMI\",\n      \"base\": 20000,\n      \"perKm\": 300\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Atur jam operasional",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/trains/{{trainCode}}/services",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "trains",
+                    "{{trainCode}}",
+                    "services"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"services\": [\n    {\n      \"direction\": \"A\",\n      \"departureTime\": \"23:55\"\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Aktifkan kereta uji",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/trains/{{trainCode}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "trains",
+                    "{{trainCode}}"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"enabled\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Aktif', () => pm.expect(pm.response.json().train.enabled).to.eql(true));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Terapkan ke jadwal mendatang",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/trains/{{trainCode}}/regenerate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "trains",
+                    "{{trainCode}}",
+                    "regenerate"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Riwayat perjalanan kereta",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/trains/{{trainCode}}/trips",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "trains",
+                    "{{trainCode}}",
+                    "trips"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Nonaktifkan kereta uji",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/trains/{{trainCode}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "trains",
+                    "{{trainCode}}"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"enabled\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Hapus kereta uji",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/trains/{{trainCode}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "trains",
+                    "{{trainCode}}"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Baca diskon lansia",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/settings",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "settings"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.collectionVariables.set('seniorPct', pm.response.json().seniorDiscountPercent);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Simpan diskon lansia (nilai sama)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/settings",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "settings"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"seniorDiscountPercent\": {{seniorPct}}}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Diskon 101 persen ditolak (BVA)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/settings",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "settings"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"seniorDiscountPercent\": 101\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 422', () => pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Masinis tidak boleh mengubah data",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{masinisToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/settings",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "settings"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"seniorDiscountPercent\": 10\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Statistik katalog",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/catalog-stats",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "catalog-stats"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Penumpang satu perjalanan",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/trips/{{tripId}}/passengers",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "trips",
+                    "{{tripId}}",
+                    "passengers"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Statistik beberapa perjalanan",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/trip-stats",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "trip-stats"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tripIds\": [\n    \"{{tripId}}\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Masinis",
+          "description": "",
+          "item": [
+            {
+              "name": "Jadwal dinas masinis",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{masinisToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/masinis/trips",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "masinis",
+                    "trips"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "const t = pm.response.json().trips.filter((x) => new Date(x.departureAt).getTime() > Date.now());",
+                      "pm.test('Ada perjalanan mendatang', () => pm.expect(t.length).to.be.above(0));",
+                      "if (t.length) pm.collectionVariables.set('dutyTripId', t[0].tripId || t[0].id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pelanggan tidak boleh membuka jadwal dinas",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/masinis/trips",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "masinis",
+                    "trips"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Masinis melaporkan terlambat 15 menit",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{masinisToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/masinis/trips/{{dutyTripId}}/delay",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "masinis",
+                    "trips",
+                    "{{dutyTripId}}",
+                    "delay"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"delayMinutes\": 15\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('DELAYED', () => pm.expect(pm.response.json().trip.status).to.eql('DELAYED'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Keterlambatan 721 menit ditolak (BVA)",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{masinisToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/masinis/trips/{{dutyTripId}}/delay",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "masinis",
+                    "trips",
+                    "{{dutyTripId}}",
+                    "delay"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"delayMinutes\": 721\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 422', () => pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Kembali tepat waktu",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{masinisToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/masinis/trips/{{dutyTripId}}/delay",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "masinis",
+                    "trips",
+                    "{{dutyTripId}}",
+                    "delay"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"delayMinutes\": 0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('SCHEDULED', () => pm.expect(pm.response.json().trip.status).to.eql('SCHEDULED'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Manifest perjalanan dinas sendiri",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{masinisToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/trips/{{dutyTripId}}/manifest",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "trips",
+                    "{{dutyTripId}}",
+                    "manifest"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Transfer VA dengan bukti",
+          "description": "",
+          "item": [
+            {
+              "name": "Tahan kursi untuk VA",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{$guid}}"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/locks",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "locks"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"GMR\",\n  \"to\": \"YK\",\n  \"seats\": [\n    \"{{seatD}}\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                      "",
+                      "pm.collectionVariables.set('lockVa', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pesanan dengan penumpang lansia",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{$guid}}"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/bookings",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "bookings"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"lockId\": \"{{lockVa}}\",\n  \"passengers\": [\n    {\n      \"seatId\": \"{{seatD}}\",\n      \"name\": \"Bapak Lansia\",\n      \"age\": 70,\n      \"nik\": \"1234567890123456\"\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                      "",
+                      "const j = pm.response.json();",
+                      "pm.test('Label lansia', () => pm.expect(j.passengers[0].passengerType).to.eql('SENIOR'));",
+                      "pm.collectionVariables.set('bookingVa', j.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pilih VA BCA",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{$guid}}"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/payments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "payments"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"bookingId\": \"{{bookingVa}}\",\n  \"method\": \"VA_BCA\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                      "",
+                      "const p = pm.response.json().payment;",
+                      "pm.test('Menunggu transfer', () => pm.expect(p.status).to.eql('AWAITING_TRANSFER'));",
+                      "pm.test('Ada nomor VA', () => pm.expect(p.vaNumber).to.be.a('string'));",
+                      "pm.collectionVariables.set('paymentVa', p.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Daftar pembayaran pesanan",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/payments?bookingId={{bookingVa}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "payments"
+                  ],
+                  "query": [
+                    {
+                      "key": "bookingId",
+                      "value": "{{bookingVa}}"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Satu pembayaran', () => pm.expect(pm.response.json().payments.length).to.eql(1));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Bukti bukan gambar ditolak",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/payments/{{paymentVa}}/proof",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "payments",
+                    "{{paymentVa}}",
+                    "proof"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fileName\": \"bukti.txt\",\n  \"dataBase64\": \"aGFsbw==\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 422', () => pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Unggah bukti transfer",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/payments/{{paymentVa}}/proof",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "payments",
+                    "{{paymentVa}}",
+                    "proof"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fileName\": \"bukti.png\",\n  \"dataBase64\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==\",\n  \"note\": \"Transfer dari BCA\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                      "",
+                      "pm.test('Menunggu verifikasi', () => pm.expect(pm.response.json().payment.status).to.eql('UNDER_REVIEW'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pelanggan tidak boleh membuka verifikasi",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/transfers",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "transfers"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Admin melihat bukti masuk",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/transfers?status=SUBMITTED",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "transfers"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "SUBMITTED"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "const t = pm.response.json().transfers.find((x) => x.payment.id === pm.collectionVariables.get('paymentVa'));",
+                      "pm.test('Bukti pesanan ini ada', () => pm.expect(t).to.be.an('object'));",
+                      "pm.test('Data pemesan untuk verifikasi', () => pm.expect(t.user.email).to.be.a('string'));",
+                      "pm.collectionVariables.set('proofId', t.proof.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pemilik bisa membuka berkas bukti",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/payments/proofs/{{proofId}}/file",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "payments",
+                    "proofs",
+                    "{{proofId}}",
+                    "file"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Berupa gambar PNG', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('image/png'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pengguna lain tidak bisa membuka bukti",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customer2Token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/payments/proofs/{{proofId}}/file",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "payments",
+                    "proofs",
+                    "{{proofId}}",
+                    "file"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Alasan tolak terlalu pendek",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/transfers/{{proofId}}/decision",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "transfers",
+                    "{{proofId}}",
+                    "decision"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"decision\": \"REJECT\",\n  \"reason\": \"abc\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 422', () => pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Admin menolak bukti",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/transfers/{{proofId}}/decision",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "transfers",
+                    "{{proofId}}",
+                    "decision"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"decision\": \"REJECT\",\n  \"reason\": \"Nominal di bukti tidak terbaca\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Notifikasi penolakan sampai ke pelanggan",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/notifications",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "notifications"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "setTimeout(() => {}, 1500);"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Ada notifikasi pembayaran ditolak', () => pm.expect(pm.response.json().notifications.map((n) => n.title)).to.include('Pembayaran ditolak'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Unggah ulang bukti",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/payments/{{paymentVa}}/proof",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "payments",
+                    "{{paymentVa}}",
+                    "proof"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fileName\": \"bukti2.png\",\n  \"dataBase64\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==\",\n  \"note\": \"Bukti lebih jelas\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Ambil bukti baru",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/transfers?status=SUBMITTED",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "transfers"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "SUBMITTED"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.collectionVariables.set('proofId', pm.response.json().transfers.find((x) => x.payment.id === pm.collectionVariables.get('paymentVa')).proof.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Admin menerima bukti",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/transfers/{{proofId}}/decision",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "admin",
+                    "transfers",
+                    "{{proofId}}",
+                    "decision"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"decision\": \"ACCEPT\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pesanan VA terkonfirmasi",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/bookings/{{bookingVa}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "bookings",
+                    "{{bookingVa}}"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "setTimeout(() => {}, 2000);"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('CONFIRMED', () => pm.expect(pm.response.json().status).to.eql('CONFIRMED'));",
+                      "pm.test('Tiket terbit', () => pm.expect(pm.response.json().passengers[0].ticketCode).to.match(/^TKT-/));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "QRIS dari ponsel",
+          "description": "",
+          "item": [
+            {
+              "name": "Tahan kursi untuk QRIS",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{$guid}}"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customer2Token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/locks",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "locks"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"from\": \"GMR\",\n  \"to\": \"YK\",\n  \"seats\": [\n    \"{{seatE}}\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                      "",
+                      "pm.collectionVariables.set('lockQr', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pesanan untuk QRIS",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{$guid}}"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customer2Token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/bookings",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "bookings"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"lockId\": \"{{lockQr}}\",\n  \"passengers\": [\n    {\n      \"seatId\": \"{{seatE}}\",\n      \"name\": \"Bima Pelanggan\",\n      \"age\": 25,\n      \"nik\": \"3578015203990002\"\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                      "",
+                      "pm.collectionVariables.set('bookingQr', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Buat QRIS",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{$guid}}"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customer2Token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/payments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "payments"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"bookingId\": \"{{bookingQr}}\",\n  \"method\": \"QRIS\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                      "",
+                      "const j = pm.response.json();",
+                      "pm.test('Tautan QRIS untuk dipindai', () => pm.expect(j.instructions.qrisUrl).to.include('/qris/'));",
+                      "pm.collectionVariables.set('qrisToken', j.checkoutToken);",
+                      "pm.collectionVariables.set('paymentQr', j.payment.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Halaman QRIS dibuka dari ponsel",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/qris/{{qrisToken}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "qris",
+                    "{{qrisToken}}"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Masih menunggu', () => pm.expect(pm.response.json().status).to.eql('PENDING'));",
+                      "pm.test('Tanpa data pribadi penumpang', () => pm.expect(pm.response.text()).to.not.include('3578015203990002'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Ponsel membayar QRIS",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/qris/{{qrisToken}}/pay",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "qris",
+                    "{{qrisToken}}",
+                    "pay"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 202', () => pm.response.to.have.status(202));",
+                      "",
+                      "pm.test('Diterima', () => pm.expect(pm.response.json().accepted).to.eql(true));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pembayaran QRIS berhasil",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customer2Token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/payments/{{paymentQr}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "payments",
+                    "{{paymentQr}}"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "setTimeout(() => {}, 2000);"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('SUCCEEDED', () => pm.expect(pm.response.json().payment.status).to.eql('SUCCEEDED'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "QR dipindai ulang tidak membayar dua kali",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/qris/{{qrisToken}}/pay",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "qris",
+                    "{{qrisToken}}",
+                    "pay"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Tidak diterima lagi', () => pm.expect(pm.response.json().accepted).to.eql(false));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Token QRIS palsu",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/qris/token-palsu-sekali",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "qris",
+                    "token-palsu-sekali"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Notifikasi",
+          "description": "",
+          "item": [
+            {
+              "name": "Jumlah belum dibaca",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/notifications/unread-count",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "notifications",
+                    "unread-count"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Angka', () => pm.expect(pm.response.json().unread).to.be.a('number'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Ambil notifikasi",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/notifications",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "notifications"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "const n = pm.response.json().notifications;",
+                      "pm.test('Ada notifikasi', () => pm.expect(n.length).to.be.above(0));",
+                      "pm.test('Setiap notifikasi punya tautan', () => pm.expect(n[0]).to.have.property('link'));",
+                      "pm.collectionVariables.set('notifId', n[0].id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Tandai satu dibaca",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/notifications/{{notifId}}/read",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "notifications",
+                    "{{notifId}}",
+                    "read"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Notifikasi orang lain tidak bisa ditandai",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customer2Token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/notifications/{{notifId}}/read",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "notifications",
+                    "{{notifId}}",
+                    "read"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Tandai semua dibaca",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/notifications/read-all",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "notifications",
+                    "read-all"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Belum dibaca menjadi 0",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/notifications/unread-count",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "notifications",
+                    "unread-count"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Nol', () => pm.expect(pm.response.json().unread).to.eql(0));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Pusat Bantuan",
+          "description": "",
+          "item": [
+            {
+              "name": "FAQ",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/support/faq",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "support",
+                    "faq"
+                  ],
+                  "query": []
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Ada kategori dan pertanyaan', () => pm.expect(pm.response.json().categories[0].items.length).to.be.above(0));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Tanya Kiko (AI atau FAQ)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "description": "Memakai Gemini bila GEMINI_API_KEY diisi. Tanpa key, atau bila Gemini gagal, jawaban diambil dari FAQ.",
+                "url": {
+                  "raw": "{{baseUrl}}/api/support/chat",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "support",
+                    "chat"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Bagaimana cara membatalkan tiket dan berapa refundnya?\"\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('Ada jawaban', () => pm.expect(pm.response.json().reply).to.be.a('string').and.not.empty);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Pesan terakhir harus dari pengguna",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/support/chat",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "support",
+                    "chat"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"assistant\",\n      \"content\": \"Halo\"\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 422', () => pm.response.to.have.status(422));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "API partner dan logout",
+          "description": "",
+          "item": [
+            {
+              "name": "Partner mencari jadwal",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{partnerToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/partner/v1/schedules?from=GMR&to=YK&date={{tripDate}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "partner",
+                    "v1",
+                    "schedules"
+                  ],
+                  "query": [
+                    {
+                      "key": "from",
+                      "value": "GMR"
+                    },
+                    {
+                      "key": "to",
+                      "value": "YK"
+                    },
+                    {
+                      "key": "date",
+                      "value": "{{tripDate}}"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Partner melihat ketersediaan",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{partnerToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/partner/v1/trips/{{tripId}}/availability?from=GMR&to=YK",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "partner",
+                    "v1",
+                    "trips",
+                    "{{tripId}}",
+                    "availability"
+                  ],
+                  "query": [
+                    {
+                      "key": "from",
+                      "value": "GMR"
+                    },
+                    {
+                      "key": "to",
+                      "value": "YK"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Logout: cabut refresh token",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/oauth/revoke",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "oauth",
+                    "revoke"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "token",
+                      "value": "{{custTokenRefresh}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "client_id",
+                      "value": "rangkai-postman",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('custTokenRefresh', pm.collectionVariables.get('customerTokenRefresh'));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "",
+                      "pm.test('revoked', () => pm.expect(pm.response.json().revoked).to.eql(true));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Refresh token yang dicabut tidak bisa dipakai",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/oauth/token",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "oauth",
+                    "token"
+                  ],
+                  "query": []
+                },
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    {
+                      "key": "grant_type",
+                      "value": "refresh_token",
+                      "type": "text"
+                    },
+                    {
+                      "key": "client_id",
+                      "value": "rangkai-postman",
+                      "type": "text"
+                    },
+                    {
+                      "key": "refresh_token",
+                      "value": "{{custTokenRefresh}}",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 400', () => pm.response.to.have.status(400));"
                     ]
                   }
                 }

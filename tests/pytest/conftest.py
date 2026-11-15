@@ -13,7 +13,7 @@ import requests
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:8080")
 PASSWORD = os.environ.get("SEED_USER_PASSWORD", "Rangkai2026!")
 WIB = timezone(timedelta(hours=7))
-ROWS = {"PRM1": 16, "PRM2": 16, "EKS1": 12, "EKS2": 12}
+ROWS = {"EKS3": 13, "EKS4": 13, "EKS1": 13, "EKS2": 13}
 
 
 def b64url(raw: bytes) -> str:
@@ -91,8 +91,8 @@ def admin():
 
 @pytest.fixture(scope="session")
 def trip_id(anon):
-    data = anon.get(f"/api/schedules?from=SGU&to=YK&date={wib_date(9)}").json()
-    return next(t["tripId"] for t in data["trips"] if t["tripId"].startswith("ARN-"))
+    data = anon.get(f"/api/schedules?from=GMR&to=ML&date={wib_date(9)}").json()
+    return next(t["tripId"] for t in data["trips"] if t["tripId"].startswith("GJY-"))
 
 
 @pytest.fixture()

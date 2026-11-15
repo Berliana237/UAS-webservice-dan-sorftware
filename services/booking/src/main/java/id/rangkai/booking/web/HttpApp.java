@@ -26,7 +26,8 @@ import javax.net.ssl.SSLPeerUnverifiedException;
 /** Router kecil di atas HttpsServer bawaan JDK: pencocokan rute, format error, verifikasi JWT, dan identitas mTLS. */
 public final class HttpApp {
     static final ObjectMapper JSON = new ObjectMapper();
-    private static final int MAX_BODY = 64 * 1024;
+    // 256 KB: cukup untuk pesanan dengan ratusan penumpang (jumlah kursi per pesanan tidak dibatasi).
+    private static final int MAX_BODY = 256 * 1024;
 
     @FunctionalInterface
     public interface Handler {

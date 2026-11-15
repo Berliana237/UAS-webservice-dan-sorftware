@@ -7,7 +7,7 @@ Lanjutan dari dokumen minggu 8. Empat risiko utama: pengambilalihan akun atau ak
 | Komponen | Mekanisme keamanan | Alasan | Implementasi |
 |---|---|---|---|
 | Autentikasi pengguna | OAuth2 Authorization Code + PKCE, JWT RS256 15 menit, refresh token berotasi dengan deteksi pemakaian ulang | Kredensial tidak dikelola tiap service, token pendek membatasi dampak bocor | `services/auth/index.js` |
-| Otorisasi | RBAC scope customer, operator, admin. Kepemilikan dicek di service | Mencegah IDOR dan eskalasi hak | `services/auth/rules.js`, `BookingService.owned()` |
+| Otorisasi | RBAC scope customer, masinis (pengganti operator di rancangan awal), admin. Kepemilikan dicek di service | Mencegah IDOR dan eskalasi hak | `services/auth/rules.js`, `BookingService.owned()` |
 | API Gateway | Validasi token dan scope, rate limit per user/IP/key, validasi skema, CORS terbatas | Satu titik kontrol, melindungi dari brute force dan scraping | `services/gateway` |
 | Antar service | mTLS sertifikat per service, Client Credentials untuk panggilan sensitif | Hanya service terdaftar yang bisa saling memanggil | `services/shared/mtls.js`, `Mtls.java` |
 | Partner | API key: hash SHA-256, tampil sekali, scope, kuota, masa berlaku, rotasi, pencabutan | Mengidentifikasi aplikasi, bukan pengguna | `services/auth/store.js` |
@@ -43,4 +43,4 @@ Lanjutan dari dokumen minggu 8. Empat risiko utama: pengambilalihan akun atau ak
 - **CA internal dibuat lokal** oleh `scripts/gen-certs.js`. Di produksi, gunakan CA terkelola dan rotasi sertifikat otomatis.
 - **Rate limit disimpan di memori gateway**, jadi tidak berbagi kuota bila gateway dijalankan lebih dari satu instance. Untuk itu perlu penyimpanan bersama seperti Redis.
 - **Pemindaian dependensi** dijalankan manual: `npm audit` untuk Node, dan `mvn org.owasp:dependency-check-maven:check` untuk Java.
-- **Render dan Vercel mengakhiri TLS di platform**, sehingga pada deployment satu container, mTLS hanya melintasi localhost di dalam container. Demonstrasi lintas jaringan memakai `docker-compose.yml`, sesuai catatan di materi sesi 8.
+- **Railway mengakhiri TLS di platform** (HTTPS di edge), sehingga pada deployment satu container, mTLS hanya melintasi localhost di dalam container. Demonstrasi lintas jaringan memakai `docker-compose.yml`, sesuai catatan di materi sesi 8.

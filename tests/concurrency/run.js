@@ -7,8 +7,8 @@ const c = require('../lib/client');
 
 const USERS = Number(process.env.CONCURRENCY_USERS || 50);
 
-/** Stop perjalanan Arunika: urutan indeks segmen dipakai untuk menghitung tumpang tindih. */
-const STOPS = ['SGU', 'MR', 'JG', 'KTS', 'NJ', 'MN', 'NGW', 'SLO', 'YK'];
+/** Stop perjalanan Gajayana: urutan indeks segmen dipakai untuk menghitung tumpang tindih. */
+const STOPS = ['GMR', 'CN', 'PWT', 'YK', 'SLO', 'MN', 'KD', 'BL', 'ML'];
 
 const overlap = (a, b) => a.from < b.to && b.from < a.to;
 
@@ -18,14 +18,14 @@ async function main() {
   const tokens = logins.map((l) => l.token);
   r.info(`${tokens.length} pengguna siap masuk.`);
   const day = 8;
-  const tripId = await c.arunikaTrip(day);
-  const trip2 = await c.arunikaTrip(day + 1);
-  const trip3 = await c.arunikaTrip(day + 2);
-  const trip4 = await c.arunikaTrip(day + 3);
+  const tripId = await c.gajayanaTrip(day);
+  const trip2 = await c.gajayanaTrip(day + 1);
+  const trip3 = await c.gajayanaTrip(day + 2);
+  const trip4 = await c.gajayanaTrip(day + 3);
 
   r.section('K-01 Semua merebut kursi dan ruas yang sama');
   const t0 = Date.now();
-  const same = await Promise.all(tokens.map((t) => c.lockSeat(t, tripId, 'SGU', 'MN', ['EKS1-1A'])));
+  const same = await Promise.all(tokens.map((t) => c.lockSeat(t, tripId, 'GMR', 'MN', ['EKS1-1A'])));
   const ms = Date.now() - t0;
   const wins = same.filter((x) => x.status === 201);
   const lost = same.filter((x) => x.status === 409 && x.json?.error?.code === 'SEAT_CONFLICT');
@@ -36,7 +36,7 @@ async function main() {
   r.info(`${USERS} permintaan selesai dalam ${ms} ms`);
 
   r.section('K-02 Ruas sebagian tumpang tindih');
-  const ranges = [['SGU', 'MN'], ['JG', 'SLO'], ['MR', 'JG'], ['NGW', 'YK'], ['MN', 'NGW'], ['KTS', 'NGW'], ['SLO', 'YK'], ['SGU', 'MR']];
+  const ranges = [['GMR', 'MN'], ['PWT', 'BL'], ['CN', 'PWT'], ['KD', 'ML'], ['MN', 'KD'], ['YK', 'KD'], ['BL', 'ML'], ['GMR', 'CN']];
   const attempts = await Promise.all(ranges.map(([from, to], i) => c.lockSeat(tokens[20 + i], tripId, from, to, ['EKS1-2A'])));
   const accepted = attempts.map((a, i) => ({ ok: a.status === 201, from: STOPS.indexOf(ranges[i][0]), to: STOPS.indexOf(ranges[i][1]) })).filter((a) => a.ok);
   const clean = accepted.every((a, i) => accepted.slice(i + 1).every((b) => !overlap(a, b)));
@@ -51,19 +51,19 @@ async function main() {
 
   r.section('K-04 Klaim banyak kursi bersifat atomik');
   const trio = await Promise.all([
-    c.lockSeat(tokens[0], trip2, 'SGU', 'YK', ['PRM1-1A', 'PRM1-1B']),
-    c.lockSeat(tokens[1], trip2, 'SGU', 'YK', ['PRM1-1B', 'PRM1-1C']),
-    c.lockSeat(tokens[2], trip2, 'SGU', 'YK', ['PRM1-1C', 'PRM1-1D']),
-    c.lockSeat(tokens[3], trip2, 'SGU', 'YK', ['PRM1-1D', 'PRM1-1A']),
+    c.lockSeat(tokens[0], trip2, 'GMR', 'ML', ['EKS3-1A', 'EKS3-1B']),
+    c.lockSeat(tokens[1], trip2, 'GMR', 'ML', ['EKS3-1B', 'EKS3-1C']),
+    c.lockSeat(tokens[2], trip2, 'GMR', 'ML', ['EKS3-1C', 'EKS3-1D']),
+    c.lockSeat(tokens[3], trip2, 'GMR', 'ML', ['EKS3-1D', 'EKS3-1A']),
   ]);
   const won = trio.filter((x) => x.status === 201).flatMap((x) => x.json.seats);
-  const av = await c.call('GET', `/api/trips/${trip2}/availability?from=SGU&to=YK`);
+  const av = await c.call('GET', `/api/trips/${trip2}/availability?from=GMR&to=ML`);
   const held = av.json.taken.map((t) => t.seatId).sort();
   r.check('K-04', 'Kursi terkunci hanya milik pemenang, tidak ada klaim setengah jalan', JSON.stringify(held) === JSON.stringify([...won].sort()), `dipegang ${held.join(',')}`);
 
   r.section('K-05 Idempotency-Key dikirim bersamaan');
   const key = c.idem();
-  const body = { tripId: trip2, from: 'SGU', to: 'MN', seats: ['PRM2-5A'] };
+  const body = { tripId: trip2, from: 'GMR', to: 'MN', seats: ['EKS4-5A'] };
   const dup = await Promise.all(Array.from({ length: 20 }, () => c.call('POST', '/api/locks', { token: tokens[10], headers: { 'idempotency-key': key }, body })));
   const ids = new Set(dup.filter((d) => d.status === 201).map((d) => d.json.id));
   r.check('K-05a', '20 kiriman menghasilkan satu lock', ids.size === 1, [...ids].join(','));
@@ -94,16 +94,16 @@ async function main() {
   r.check('K-06b', 'Tidak ada error 5xx', !Object.keys(statuses).some((k) => Number(k) >= 500), JSON.stringify(statuses));
 
   r.section('K-07 Rebutan tepat saat TTL habis');
-  const first = await c.lockSeat(tokens[20], trip4, 'SGU', 'MN', ['SUI1-1A'], { ttlSeconds: 3 });
+  const first = await c.lockSeat(tokens[20], trip4, 'GMR', 'MN', ['LUX1-1A'], { ttlSeconds: 3 });
   r.check('K-07a', 'Lock singkat dibuat', first.status === 201);
   await new Promise((res) => setTimeout(res, Math.max(0, first.json.expiresAt - Date.now()) + 50));
-  const race = await Promise.all(tokens.slice(21, 41).map((t) => c.lockSeat(t, trip4, 'SGU', 'MN', ['SUI1-1A'])));
+  const race = await Promise.all(tokens.slice(21, 41).map((t) => c.lockSeat(t, trip4, 'GMR', 'MN', ['LUX1-1A'])));
   r.check('K-07b', 'Setelah TTL habis tepat satu pengguna mendapatkannya', race.filter((x) => x.status === 201).length === 1, race.map((x) => x.status).join(','));
 
   r.section('K-08 Pembayaran ganda bersamaan');
   const payer = tokens[45];
-  const l = await c.lockSeat(payer, trip4, 'MN', 'YK', ['SUI1-2A']);
-  const b = await c.createBooking(payer, l.json.id, ['SUI1-2A']);
+  const l = await c.lockSeat(payer, trip4, 'MN', 'ML', ['LUX1-2A']);
+  const b = await c.createBooking(payer, l.json.id, ['LUX1-2A']);
   const key2 = c.idem();
   const pays = await Promise.all(Array.from({ length: 8 }, () => c.call('POST', '/api/payments', { token: payer, headers: { 'idempotency-key': key2 }, body: { bookingId: b.json.id, method: 'QRIS' } })));
   const payIds = new Set(pays.filter((p) => p.status === 201).map((p) => p.json.payment.id));

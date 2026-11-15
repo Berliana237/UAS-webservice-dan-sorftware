@@ -31,10 +31,10 @@ function safeJoin(base, rel) {
 
 const DOCS_HTML = `<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Rangkai API</title><meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="/docs/swagger/swagger-ui.css"><style>body{margin:0}.topbar{display:none}</style></head><body><div id="ui"></div>
-<script src="/docs/swagger/swagger-ui-bundle.js"></script><script>SwaggerUIBundle({url:'/docs/openapi.yaml',dom_id:'#ui',deepLinking:true,persistAuthorization:true})</script></body></html>`;
+<script src="/docs/swagger/swagger-ui-bundle.js"></script><script>const ui=SwaggerUIBundle({url:'/docs/openapi.yaml',dom_id:'#ui',deepLinking:true,persistAuthorization:true,docExpansion:'list',defaultModelsExpandDepth:0,filter:true,displayRequestDuration:true,showExtensions:true,tryItOutEnabled:true,oauth2RedirectUrl:location.origin+'/docs/swagger/oauth2-redirect.html'});ui.initOAuth({clientId:'rangkai-postman',usePkceWithAuthorizationCodeGrant:true,appName:'Rangkai Swagger'})</script></body></html>`;
 
 /** Halaman aplikasi web. Hanya alamat ini yang dijawab index.html, selain itu klien API mendapat JSON yang jelas. */
-const SPA_ROUTES = /^\/(masuk|daftar|cari|perjalanan|konsol|auth\/callback|(kursi|pesanan|bayar|tiket)\/[^/]+)?$/;
+const SPA_ROUTES = /^\/(masuk|daftar|cari|perjalanan|profil|bantuan|privasi|konsol|auth\/callback|(kursi|pesanan|bayar|tiket|qris)\/[^/]+|admin(\/(data|pengguna|armada|transfer|sistem|audit|api-key)(\/[^/]+)?)?|masinis(\/(jadwal|perjalanan)(\/[^/]+)?)?)?$/;
 
 function json(req, res, status, code, message, details) {
   res.statusCode = status;

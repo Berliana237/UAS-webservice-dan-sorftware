@@ -37,13 +37,13 @@ async function main() {
   const r = c.reporter('Uji Keamanan Dasar (OWASP API Top 10)', 'security');
   const a = await c.registerUser('korban');
   const b = await c.registerUser('penyerang');
-  const operator = await c.login('operator@rangkai.test');
+  const masinis = await c.login('masinis@rangkai.test');
   const admin = await c.login('admin@rangkai.test');
-  const tripId = await c.arunikaTrip(6);
-  const seat = `PRM2-${1 + Math.floor(Math.random() * 16)}C`;
+  const tripId = await c.gajayanaTrip(6);
+  const seat = `EKS4-${1 + Math.floor(Math.random() * 13)}C`;
 
   r.section('API1 Broken Object Level Authorization (IDOR)');
-  const lock = await c.lockSeat(a.token, tripId, 'SGU', 'MN', [seat]);
+  const lock = await c.lockSeat(a.token, tripId, 'GMR', 'MN', [seat]);
   const book = await c.createBooking(a.token, lock.json.id, [seat]);
   for (const [id, name, res] of [
     ['S-01', 'Pesanan orang lain tidak terbaca', await c.call('GET', `/api/bookings/${book.json.id}`, { token: b.token })],
@@ -115,8 +115,8 @@ async function main() {
     ['S-24', 'Pelanggan tidak bisa membuat API key', await c.call('POST', '/api/admin/api-keys', { token: b.token, body: { name: 'jahat' } })],
     ['S-25', 'Pelanggan tidak bisa melihat manifest', await c.call('GET', `/api/trips/${tripId}/manifest`, { token: b.token })],
     ['S-26', 'Pelanggan tidak bisa mengubah perjalanan', await c.call('PATCH', `/api/trips/${tripId}`, { token: b.token, body: { status: 'CANCELLED' } })],
-    ['S-27', 'Operator tidak bisa membaca audit', await c.call('GET', '/api/admin/audit', { token: operator.token })],
-    ['S-28', 'Operator tidak bisa memesan kursi', await c.call('POST', '/api/locks', { token: operator.token, headers: { 'idempotency-key': c.idem() }, body: { tripId, from: 'SGU', to: 'MN', seats: ['EKS1-1A'] } })],
+    ['S-27', 'Masinis tidak bisa membaca audit', await c.call('GET', '/api/admin/audit', { token: masinis.token })],
+    ['S-28', 'Masinis tidak bisa memesan kursi', await c.call('POST', '/api/locks', { token: masinis.token, headers: { 'idempotency-key': c.idem() }, body: { tripId, from: 'GMR', to: 'MN', seats: ['EKS1-1A'] } })],
   ]) r.check(id, name, res.status === 403, `status ${res.status}`);
 
   r.section('Integritas pembayaran');
@@ -142,7 +142,7 @@ async function main() {
   r.check('S-40', 'File .env tidak bisa diunduh', !secret.text.includes('WEBHOOK_SECRET'));
   const trav = await c.call('GET', '/assets/..%2f..%2f.env');
   r.check('S-41', 'Path traversal ke luar folder web gagal', !trav.text.includes('WEBHOOK_SECRET'), `status ${trav.status}`);
-  const err = await c.call('POST', '/api/locks', { token: a.token, headers: { 'idempotency-key': c.idem() }, body: { tripId: "x' OR '1'='1", from: 'SGU', to: 'MN', seats: ['EKS1-1A'] } });
+  const err = await c.call('POST', '/api/locks', { token: a.token, headers: { 'idempotency-key': c.idem() }, body: { tripId: "x' OR '1'='1", from: 'GMR', to: 'MN', seats: ['EKS1-1A'] } });
   r.check('S-42', 'Injeksi SQL pada tripId ditolak tanpa membocorkan detail', [404, 422].includes(err.status) && !/sqlite|syntax|stack/i.test(err.text), `status ${err.status}`);
 
   r.section('Keamanan antar service: mTLS');

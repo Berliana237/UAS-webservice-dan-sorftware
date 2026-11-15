@@ -6,14 +6,15 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { generateCerts } = require('./gen-certs');
+const { generateCerts, SERVICES } = require('./gen-certs');
 
 const ROOT = path.resolve(__dirname, '..');
 const envFile = path.join(ROOT, '.env');
 const hex = (n = 32) => crypto.randomBytes(n).toString('hex');
 
 function ensureEnv() {
-  if (fs.existsSync(envFile)) return false;
+  // Di platform (Railway) secret datang dari environment. Jangan buat .env acak: kunci PII harus tetap sama antar deploy.
+  if (fs.existsSync(envFile) || process.env.PII_KEY_BASE64) return false;
   const example = fs.readFileSync(path.join(ROOT, '.env.example'), 'utf8');
   const filled = example
     .replace('PII_KEY_BASE64=<base64-32-byte>', `PII_KEY_BASE64=${crypto.randomBytes(32).toString('base64')}`)
@@ -38,7 +39,7 @@ function writePostmanEnv(baseUrl = 'http://localhost:8080', suffix = 'local') {
   const env = parseEnv();
   const values = {
     baseUrl, webhookSecret: env.WEBHOOK_SECRET, partnerClientSecret: env.PARTNER_DEMO_CLIENT_SECRET, seedPassword: env.SEED_USER_PASSWORD,
-    customerEmail: 'customer@rangkai.test', customer2Email: 'customer2@rangkai.test', operatorEmail: 'operator@rangkai.test', adminEmail: 'admin@rangkai.test',
+    masinisEmail: 'masinis@rangkai.test', adminEmail: 'admin@rangkai.test',
   };
   const file = path.join(ROOT, 'postman', `Rangkai.${suffix}.postman_environment.json`);
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -53,8 +54,10 @@ function main() {
   const created = ensureEnv();
   console.log(created ? '[OK] .env dibuat dengan secret acak.' : '[OK] .env sudah ada.');
   const certDir = path.join(ROOT, 'certs');
-  if (!fs.existsSync(path.join(certDir, 'ca.crt'))) { generateCerts(certDir); console.log('[OK] Sertifikat mTLS dibuat di folder certs.'); } else console.log('[OK] Sertifikat mTLS sudah ada.');
-  console.log(`[OK] Environment Postman: ${path.relative(ROOT, writePostmanEnv())}`);
+  // Kunci CA tidak disimpan, jadi bila ada satu sertifikat service yang hilang (mis. service baru), semua dibuat ulang.
+  const missing = ['ca', ...SERVICES, 'rogue'].filter((n) => !fs.existsSync(path.join(certDir, `${n}.crt`)));
+  if (missing.length) { generateCerts(certDir); console.log(`[OK] Sertifikat mTLS dibuat di folder certs (${missing.join(', ')} belum ada).`); } else console.log('[OK] Sertifikat mTLS sudah lengkap.');
+  if (fs.existsSync(envFile)) console.log(`[OK] Environment Postman: ${path.relative(ROOT, writePostmanEnv())}`);
 }
 
 if (require.main === module) main();

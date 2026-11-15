@@ -3,8 +3,9 @@ import { $, api, esc, rupiah, timeOf, dateLong, confirmDialog, go, toast } from 
 import { Kiko } from '../kiko.js';
 import { Sound } from '../sound.js';
 import { qrSvg, steps, confetti } from '../ui.js';
+import { invoice, routeTimeline, delayNote, tripContext } from './trip-kit.js';
 
-const TYPE = { CHILD: 'Anak', ADULT: 'Dewasa', SENIOR: 'Lansia' };
+const TYPE = { INFANT: 'Bayi', CHILD: 'Anak', ADULT: 'Dewasa', SENIOR: 'Lansia' };
 const STATE = {
   CONFIRMED: ['LUNAS', 'ok'], CHECKED_IN: ['SUDAH NAIK', 'ok'], CANCELLED: ['DIBATALKAN', 'bad'], EXPIRED: ['KEDALUWARSA', 'bad'], PENDING_PAYMENT: ['MENUNGGU BAYAR', 'wait'],
 };
@@ -15,14 +16,15 @@ function pass(b, p, i) {
     <div class="bp-main">
       <header class="bp-head"><span class="eyebrow">${esc(b.trainName)}</span><span class="mono bp-code">${esc(b.code)}</span></header>
       <div class="bp-route">
-        <div><b class="mono">${timeOf(b.departureAt)}</b><span>${esc(b.from.name)}</span></div>
+        <div><b class="mono">${timeOf(b.departureAt + (b.delayMinutes || 0) * 60000)}</b>${b.delayMinutes ? `<small class="bp-late">terlambat ${b.delayMinutes} menit</small>` : ''}<span>${esc(b.from.name)}</span></div>
         <i class="bp-line" aria-hidden="true"></i>
         <div class="end"><span>${esc(b.to.name)}</span></div>
       </div>
       <dl class="bp-meta">
         <div><dt>Penumpang</dt><dd>${esc(p.name)}</dd></div>
         <div><dt>Kursi</dt><dd class="mono">${esc(p.seatId)}</dd></div>
-        <div><dt>Golongan</dt><dd>${TYPE[p.passengerType] || ''}</dd></div>
+        <div><dt>Golongan</dt><dd>${p.passengerTypeLabel || TYPE[p.passengerType] || ''}</dd></div>
+        <div><dt>Kelas</dt><dd>${{ EKONOMI: 'Ekonomi', EKSEKUTIF: 'Eksekutif', LUXURY: 'Luxury' }[p.seatClass] || ''}</dd></div>
         <div><dt>NIK</dt><dd class="mono">${esc(p.nikMasked || '-')}</dd></div>
       </dl>
       <p class="bp-date muted">${dateLong(b.departureAt)}</p>
@@ -39,21 +41,29 @@ export function render(main, { params, query }) {
   const id = params.bookingId;
   main.innerHTML = `<div class="page wrap ticket-page" id="tp"><span class="skel" style="height:320px"></span></div>`;
 
+  let ctx = null;
+  let celebrated = false;
   const paint = (b) => {
     const [label, cls] = STATE[b.status] || [b.status, 'wait'];
-    const fresh = query.get('baru') === '1' && b.status === 'CONFIRMED';
+    const fresh = !celebrated && query.get('baru') === '1' && b.status === 'CONFIRMED';
+    if (fresh) celebrated = true;
     $('#tp').innerHTML = `
       <div class="page-head no-pad no-print">${b.status === 'CONFIRMED' ? steps(3) : ''}<a class="btn link" href="/perjalanan" data-link>Semua perjalanan</a></div>
       <div class="tk-head">
         <div><h1 class="h-sm">${b.status === 'CONFIRMED' ? 'Selamat <em>jalan.</em>' : b.status === 'CHECKED_IN' ? 'Selamat <em>menikmati.</em>' : `Pesanan <em>${esc(b.code)}</em>`}</h1>
-          <p class="sub">${b.status === 'CANCELLED' ? (b.refundAmount > 0 ? `Dana ${rupiah(b.refundAmount)} dikembalikan.` : 'Tidak ada dana yang perlu dikembalikan.') : 'Tunjukkan QR ini kepada kondektur.'}</p></div>
+          <p class="sub">${b.status === 'CANCELLED' ? (b.refundAmount > 0 ? `Dana ${rupiah(b.refundAmount)} dikembalikan.` : 'Tidak ada dana yang perlu dikembalikan.') : b.status === 'PENDING_PAYMENT' ? 'Tiket terbit setelah pembayaran diterima.' : 'Tunjukkan QR ini kepada masinis atau petugas saat naik.'}</p></div>
         <span class="stamp ${cls} ${fresh ? 'fresh' : ''}" aria-label="Status pesanan: ${label}">${label}</span>
       </div>
+      ${delayNote(b)}
       <div class="bp-list">${b.passengers.map((p, i) => pass(b, p, i)).join('')}</div>
+      <div class="tk-extra">
+        <div class="card flat" id="tk-route">${routeTimeline(b, ctx) || '<span class="skel" style="height:220px"></span>'}</div>
+        <div class="card flat tk-inv"><h2 class="h-xs">Rincian tarif</h2>${invoice(b, ctx, { compact: true })}</div>
+      </div>
       <div class="tk-actions no-print">
         ${b.status === 'CONFIRMED' ? '<button class="btn ghost" id="print">Cetak</button><button class="btn ghost" id="cancel">Batalkan pesanan</button>' : ''}
         ${b.status === 'PENDING_PAYMENT' ? `<a class="btn gold" href="/bayar/${esc(id)}" data-link>Lanjut bayar</a><button class="btn ghost" id="cancel">Batalkan pesanan</button>` : ''}
-        ${['CANCELLED', 'EXPIRED'].includes(b.status) ? '<a class="btn gold" href="/" data-link>Cari kereta lagi</a>' : ''}
+        ${['CANCELLED', 'EXPIRED'].includes(b.status) ? '<a class="btn gold" href="/cari" data-link>Cari kereta lagi</a>' : ''}
       </div>`;
     $('#print')?.addEventListener('click', () => print());
     $('#cancel')?.addEventListener('click', () => cancel(b));
@@ -87,7 +97,11 @@ export function render(main, { params, query }) {
     } catch (e) { toast(e.message, 'err'); }
   }
 
-  api(`/api/bookings/${id}`).then(paint).catch((e) => {
+  api(`/api/bookings/${id}`).then(async (b) => {
+    paint(b);
+    ctx = await tripContext(b);
+    if (main.contains($('#tp'))) paint(b);
+  }).catch((e) => {
     if (!main.contains($('#tp'))) return;
     if (e.status === 404) { toast('Pesanan tidak ditemukan.', 'warn'); go('/perjalanan', { replace: true }); return; }
     $('#tp').innerHTML = `<div class="empty"><p>${esc(e.message)}</p></div>`;

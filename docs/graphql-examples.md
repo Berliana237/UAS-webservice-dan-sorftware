@@ -1,6 +1,6 @@
 # Contoh Query dan Mutation GraphQL
 
-Endpoint: `POST /graphql`. Skema lengkap: [schema.graphql](schema.graphql), atau `GET /graphql/schema`. Query publik. Mutation butuh token dengan scope `schedule:write` (operator atau admin).
+Endpoint: `POST /graphql`. Skema lengkap: [schema.graphql](schema.graphql), atau `GET /graphql/schema`. Query publik. Mutation butuh token dengan scope `schedule:write` (admin).
 
 ## Query
 
@@ -27,7 +27,7 @@ query Cari($from: String!, $to: String!, $date: String!) {
 }
 ```
 
-Variabel: `{ "from": "SGU", "to": "MN", "date": "2026-11-10" }`
+Variabel: `{ "from": "GMR", "to": "MN", "date": "2026-11-20", "train": "GJY" }` (`train` opsional, untuk dropdown nama kereta)
 
 ### Peta kursi per segmen
 
@@ -35,7 +35,7 @@ Status kursi dihitung untuk ruas yang diminta. `segments` berisi status tiap rua
 
 ```graphql
 query Peta($id: ID!) {
-  seatMap(tripId: $id, from: "SGU", to: "MN") {
+  seatMap(tripId: $id, from: "GMR", to: "MN") {
     fromIndex
     toIndex
     km
@@ -43,10 +43,10 @@ query Peta($id: ID!) {
     total
     segments { index from { name } to { name } km }
     coaches {
-      coach { code name seatClass rows letters }
+      coach { code label seatClass rows letters aisleAfter rowFacing }
       adultFare
       available
-      seats { id row letter status segments { index status } }
+      seats { id row letter facing status segments { index status } }
     }
   }
 }
@@ -58,7 +58,7 @@ Inilah keunggulan GraphQL untuk polling: muatannya kecil.
 
 ```graphql
 query Ringkas($id: ID!) {
-  seatMap(tripId: $id, from: "SGU", to: "YK") { available total }
+  seatMap(tripId: $id, from: "GMR", to: "YK") { available total }
 }
 ```
 
@@ -74,7 +74,7 @@ query Ringkas($id: ID!) {
 
 ```graphql
 mutation {
-  createTrip(input: { lineCode: "ARN", serviceDate: "2026-11-30", departureTime: "14:30" }) {
+  createTrip(input: { trainId: "GJY", direction: "A", serviceDate: "2026-11-30", departureTime: "14:30" }) {
     id trainName departureAt
   }
 }

@@ -12,7 +12,7 @@ if (!fs.existsSync(JAR)) { console.error(`[X] ${JAR} belum ada. Jalankan run.bat
 
 const runDir = path.join(ROOT, '.run');
 fs.mkdirSync(runDir, { recursive: true });
-console.log('\nMenyalakan semua proses: registry, broker, auth, catalog, booking, payment, notification, gateway...');
+console.log('\nMenyalakan semua proses: registry, broker, auth, catalog, booking, payment, notification, support, gateway...');
 const stack = startStack({ onExit: (name, code) => { if (!stopping) console.log(`[!] ${name} berhenti (kode ${code}). Lihat reports/logs/${name}.log`); } });
 let stopping = false;
 fs.writeFileSync(path.join(runDir, 'pids.json'), JSON.stringify({ launcher: process.pid, children: stack.children.map((c) => c.pid) }));
@@ -26,13 +26,15 @@ stack.ready().then(() => {
 ====================================================
   Rangkai siap dipakai
   Aplikasi   : http://localhost:8080
+  Dari ponsel: ${require('../services/shared/config').qrPublicBase()}  (Wi-Fi yang sama, untuk QRIS)
   HTTPS      : https://localhost:8443  (sertifikat dev)
   Dokumen API: http://localhost:8080/docs
   GraphQL    : POST http://localhost:8080/graphql
 
   Akun demo (password: ${process.env.SEED_USER_PASSWORD})
-    customer@rangkai.test, customer2@rangkai.test
-    operator@rangkai.test, admin@rangkai.test
+    Pelanggan : daftar sendiri lewat halaman Daftar (tidak ada akun pelanggan bawaan)
+    Masinis   : masinis@rangkai.test, masinis2@rangkai.test
+    Admin     : admin@rangkai.test
 
   Jangan tutup jendela ini selama aplikasi dipakai.
 ====================================================`);

@@ -9,7 +9,8 @@ public enum BookingStatus {
     private Set<BookingStatus> next() {
         return switch (this) {
             case PENDING_PAYMENT -> Set.of(CONFIRMED, CANCELLED, EXPIRED);
-            case CONFIRMED -> Set.of(CHECKED_IN, CANCELLED);
+            // CONFIRMED -> PENDING_PAYMENT hanya untuk pembayaran yang ditolak ulang admin: pengguna boleh mengunggah bukti baru.
+            case CONFIRMED -> Set.of(CHECKED_IN, CANCELLED, PENDING_PAYMENT);
             case CHECKED_IN, CANCELLED, EXPIRED -> Set.of();
         };
     }

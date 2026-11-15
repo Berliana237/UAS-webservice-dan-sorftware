@@ -55,12 +55,12 @@ async function registerUser(prefix = 'uji', base = BASE) {
 const wibDate = (daysAhead) => new Date(Date.now() + daysAhead * 86400000 + 7 * 3600000).toISOString().slice(0, 10);
 const idem = () => crypto.randomUUID();
 
-/** Perjalanan Arunika (Surabaya Gubeng sampai Yogyakarta Tugu). Tiap pemanggilan dengan hari berbeda memberi kursi bersih. */
-async function arunikaTrip(daysAhead = 3, base = BASE) {
-  const r = await call('GET', `/api/schedules?from=SGU&to=YK&date=${wibDate(daysAhead)}`, { base });
+/** Perjalanan Gajayana (Surabaya Gubeng sampai Yogyakarta Tugu). Tiap pemanggilan dengan hari berbeda memberi kursi bersih. */
+async function gajayanaTrip(daysAhead = 3, base = BASE) {
+  const r = await call('GET', `/api/schedules?from=GMR&to=ML&date=${wibDate(daysAhead)}`, { base });
   if (r.status !== 200) throw new Error(`jadwal gagal ${r.status}: ${r.text}`);
-  const t = r.json.trips.find((x) => x.tripId.startsWith('ARN-'));
-  if (!t) throw new Error('perjalanan Arunika tidak ditemukan');
+  const t = r.json.trips.find((x) => x.tripId.startsWith('GJY-'));
+  if (!t) throw new Error('perjalanan Gajayana tidak ditemukan');
   return t.tripId;
 }
 
@@ -125,4 +125,4 @@ function reporter(title, file) {
   return report;
 }
 
-module.exports = { ROOT, BASE, PASSWORD, NIK, REDIRECT, call, login, pkcePair, registerUser, wibDate, idem, arunikaTrip, lockSeat, passengersFor, createBooking, waitUntil, payBooking, reporter };
+module.exports = { ROOT, BASE, PASSWORD, NIK, REDIRECT, call, login, pkcePair, registerUser, wibDate, idem, gajayanaTrip, lockSeat, passengersFor, createBooking, waitUntil, payBooking, reporter };

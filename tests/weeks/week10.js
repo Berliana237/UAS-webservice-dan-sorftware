@@ -42,8 +42,8 @@ async function run({ stack } = {}) {
   r.check('W10-03', 'Permintaan tetap dilayani tanpa kegagalan', during.failed === 0 && during.counts['booking-b'] >= 1, `gagal ${during.failed}`);
 
   const user = await c.login('customer@rangkai.test');
-  const trip = await c.arunikaTrip(7);
-  const lk = await c.lockSeat(user.token, trip, 'SGU', 'MN', [`EKS2-${1 + Math.floor(Math.random() * 12)}D`]);
+  const trip = await c.gajayanaTrip(7);
+  const lk = await c.lockSeat(user.token, trip, 'GMR', 'MN', [`EKS2-${1 + Math.floor(Math.random() * 12)}D`]);
   r.check('W10-04', 'Seat locking tetap berjalan saat satu instance mati', lk.status === 201, `status ${lk.status}`);
   if (lk.status === 201) await c.call('DELETE', `/api/locks/${lk.json.id}`, { token: user.token });
 

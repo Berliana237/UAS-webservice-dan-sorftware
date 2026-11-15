@@ -233,7 +233,9 @@ const invalid = (f) => new ApiError(422, 'VALIDATION_FAILED', 'Periksa kembali i
 app.patch('/api/auth/me', verifier.requireAuth(), (req, res) => {
   const user = store.findUserById(req.user.sub);
   if (!user) throw new ApiError(404, 'USER_NOT_FOUND', 'Pengguna tidak ditemukan.');
-  const { f, value } = profileFields(req.body || {});
+  // PATCH bersifat sebagian: field yang tidak dikirim tetap memakai nilai lama. Kirim null untuk mengosongkan.
+  const { name, phone, nik, birthDate } = store.publicUser(user);
+  const { f, value } = profileFields({ name, phone, nik, birthDate, ...(req.body || {}) });
   if (Object.keys(f).length) throw invalid(f);
   audit('profile.updated', { actor: user.id, target: user.id });
   res.json({ user: store.publicUser(store.updateProfile(user.id, value)) });

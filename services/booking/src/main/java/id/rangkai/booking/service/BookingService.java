@@ -172,6 +172,16 @@ public class BookingService {
     private static final long DEPARTURE_REMINDER_MS = 3 * 3_600_000L;
 
     public int sweep() {
+        // Sweeper berjalan tiap detik di setiap instance. Pemeriksaan awal memakai koneksi baca (WAL, tidak memblokir),
+        // sehingga kunci tulis SQLite hanya diambil bila memang ada pekerjaan. Tanpa ini, seat locking pengguna ikut antre.
+        long probe = System.currentTimeMillis();
+        boolean work = Db.num(db.one("""
+            SELECT (EXISTS(SELECT 1 FROM bookings WHERE status='PENDING_PAYMENT' AND expires_at<=?)
+                 OR EXISTS(SELECT 1 FROM bookings WHERE status='PENDING_PAYMENT' AND reminded_payment=0 AND expires_at>? AND expires_at<=?)
+                 OR EXISTS(SELECT 1 FROM bookings WHERE status='CONFIRMED' AND reminded_departure=0 AND departure_at>? AND departure_at<=?)
+                 OR EXISTS(SELECT 1 FROM seat_locks WHERE status='ACTIVE' AND expires_at<=?)) AS w""",
+            probe, probe, probe + PAYMENT_REMINDER_MS, probe, probe + DEPARTURE_REMINDER_MS, probe).orElseThrow(), "w") == 1;
+        if (!work) return 0;
         return db.run(() -> {
             long now = System.currentTimeMillis();
             for (var b : db.list("SELECT * FROM bookings WHERE status='PENDING_PAYMENT' AND expires_at<=? LIMIT 100", now)) expireBooking(b, now);
@@ -214,11 +224,29 @@ public class BookingService {
     }
 
     /** Admin membalik keputusan transfer yang sudah diterima: pesanan dibatalkan dan kursi dilepas. */
+    /**
+     * Admin mengubah keputusan transfer dari diterima menjadi ditolak. Pesanan tidak dibatalkan: kembali menunggu
+     * pembayaran, kursi tetap ditahan, tiket dicabut, dan pengguna bisa mengunggah bukti baru. Hanya bila kereta
+     * berangkat kurang dari 1 jam lagi pesanan dibatalkan, karena tidak ada waktu untuk memeriksa bukti baru.
+     */
     public void onPaymentReversed(String bookingId, String reason) {
         db.run(() -> {
             var b = db.one("SELECT * FROM bookings WHERE id=?", bookingId).orElse(null);
             if (b == null || !"CONFIRMED".equals(Db.str(b, "status"))) return null;
-            doCancel(b, System.currentTimeMillis(), 0, reason == null ? "payment_reversed" : reason);
+            long now = System.currentTimeMillis();
+            long until = Math.min(now + MAX_HOLD_MS, Db.num(b, "departure_at") - 3_600_000L);
+            if (until <= now) {
+                doCancel(b, now, 0, reason == null ? "payment_reversed" : reason);
+                return null;
+            }
+            BookingStatus.CONFIRMED.moveTo(BookingStatus.PENDING_PAYMENT);
+            String lockId = Db.str(b, "lock_id");
+            db.update("UPDATE seat_claims SET owner_type='LOCK', owner_id=?, expires_at=? WHERE owner_id=?", lockId, until, bookingId);
+            db.update("UPDATE seat_locks SET status=?, expires_at=? WHERE id=?", SeatLockService.ACTIVE, until, lockId);
+            db.update("UPDATE bookings SET status=?, payment_id=NULL, paid_at=NULL, expires_at=?, reminded_payment=0 WHERE id=?", BookingStatus.PENDING_PAYMENT.name(), until, bookingId);
+            db.update("UPDATE passengers SET ticket_code=NULL WHERE booking_id=?", bookingId);
+            events.seatsChanged(Db.str(b, "trip_id"), seatsOf(bookingId), rangeOf(b), "LOCKED");
+            audit("booking.payment_reversed", Db.str(b, "user_id"), bookingId);
             return null;
         });
     }
@@ -227,9 +255,10 @@ public class BookingService {
     public int onTripDelayed(String tripId, int delayMinutes) {
         return db.run(() -> {
             int n = 0;
+            db.update("UPDATE bookings SET delay_minutes=? WHERE trip_id=?", delayMinutes, tripId);
             for (var b : db.list("SELECT * FROM bookings WHERE trip_id=? AND status IN ('PENDING_PAYMENT','CONFIRMED')", tripId)) {
-                events.publish("booking.trip_delayed", Db.str(b, "id"), Map.of("bookingId", Db.str(b, "id"), "userId", Db.str(b, "user_id"), "code", Db.str(b, "code"),
-                    "trainName", Db.str(b, "train_name"), "delayMinutes", delayMinutes));
+                events.publish(delayMinutes > 0 ? "booking.trip_delayed" : "booking.trip_on_time", Db.str(b, "id"), Map.of("bookingId", Db.str(b, "id"), "userId", Db.str(b, "user_id"), "code", Db.str(b, "code"),
+                    "trainName", Db.str(b, "train_name"), "delayMinutes", delayMinutes, "fromName", Db.str(b, "from_name"), "departureAt", Db.num(b, "departure_at")));
                 n++;
             }
             return n;
@@ -339,6 +368,7 @@ public class BookingService {
             out.put("from", Db.str(b, "from_name"));
             out.put("to", Db.str(b, "to_name"));
             out.put("departureAt", Db.num(b, "departure_at"));
+            out.put("delayMinutes", b.get("delay_minutes") == null ? 0 : Db.num(b, "delay_minutes"));
             out.put("contactName", crypto.decrypt(Db.str(b, "contact_name_enc")));
             out.put("contactEmail", crypto.decrypt(Db.str(b, "contact_email_enc")));
             List<Map<String, Object>> pax = new ArrayList<>();
@@ -435,6 +465,7 @@ public class BookingService {
         out.put("from", Map.of("code", Db.str(b, "from_code"), "name", Db.str(b, "from_name")));
         out.put("to", Map.of("code", Db.str(b, "to_code"), "name", Db.str(b, "to_name")));
         out.put("departureAt", Db.num(b, "departure_at"));
+        out.put("delayMinutes", b.get("delay_minutes") == null ? 0 : Db.num(b, "delay_minutes"));
         out.put("amount", Db.num(b, "amount"));
         out.put("expiresAt", Db.num(b, "expires_at"));
         out.put("createdAt", Db.num(b, "created_at"));
@@ -463,7 +494,8 @@ public class BookingService {
     public List<Map<String, Object>> manifest(String tripId) {
         List<Map<String, Object>> rows = new ArrayList<>();
         for (var r : db.list("""
-            SELECT p.seat_id, p.seat_class, p.name_enc, p.nik_enc, p.passenger_type, p.checked_in_at, p.ticket_code, b.code, b.from_name, b.to_name, b.status
+            SELECT p.seat_id, p.seat_class, p.name_enc, p.nik_enc, p.passenger_type, p.age, p.checked_in_at, p.ticket_code, b.id booking_id, b.code, b.user_id,
+                   b.contact_name_enc, b.from_name, b.to_name, b.from_idx, b.to_idx, b.status
             FROM passengers p JOIN bookings b ON b.id=p.booking_id
             WHERE b.trip_id=? AND b.status IN ('CONFIRMED','CHECKED_IN') ORDER BY b.from_idx, p.seat_id""", tripId)) {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -477,9 +509,26 @@ public class BookingService {
             m.put("to", Db.str(r, "to_name"));
             m.put("ticketCode", Db.str(r, "ticket_code"));
             m.put("checkedIn", r.get("checked_in_at") != null);
+            m.put("age", Db.num(r, "age"));
+            m.put("bookingId", Db.str(r, "booking_id"));
+            m.put("fromIdx", Db.num(r, "from_idx"));
+            m.put("toIdx", Db.num(r, "to_idx"));
+            // Kunci akun pemesan disamarkan (bukan id asli) agar masinis bisa mengelompokkan kursi dari akun yang sama.
+            m.put("accountKey", sha256Short(Db.str(r, "user_id")));
+            String booker = r.get("contact_name_enc") == null ? null : crypto.decrypt(Db.str(r, "contact_name_enc"));
+            m.put("bookedBy", booker);
             rows.add(m);
         }
         return rows;
+    }
+
+    private static String sha256Short(String v) {
+        try {
+            byte[] d = java.security.MessageDigest.getInstance("SHA-256").digest(String.valueOf(v).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(d).substring(0, 12);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     public List<Map<String, Object>> claims(String tripId) {

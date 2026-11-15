@@ -98,6 +98,8 @@ public final class Workers {
             case "payment.succeeded" -> bookings.onPaymentSucceeded(p.path("bookingId").asText(), p.path("paymentId").asText(), p.path("amount").asLong());
             case "trip.cancelled" -> bookings.onTripCancelled(p.path("tripId").asText());
             case "trip.delayed" -> bookings.onTripDelayed(p.path("tripId").asText(), p.path("delayMinutes").asInt());
+            // Kembali tepat waktu: keterlambatan di pesanan direset dan penumpang diberi tahu.
+            case "trip.updated" -> { if ("SCHEDULED".equals(p.path("status").asText())) bookings.onTripDelayed(p.path("tripId").asText(), 0); }
             case "payment.reversed" -> bookings.onPaymentReversed(p.path("bookingId").asText(), "payment_reversed");
             default -> { /* payment.failed: pesanan tetap menunggu sampai TTL, pengguna boleh coba metode lain */ }
         }

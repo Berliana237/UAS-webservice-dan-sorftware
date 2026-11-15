@@ -3,9 +3,11 @@ package id.rangkai.booking.domain;
 import java.util.HashSet;
 import java.util.List;
 
-/** Aturan penahanan kursi: jumlah kursi, durasi, dan batas lock aktif agar kursi tidak ditimbun bot. */
+/**
+ * Aturan penahanan kursi: daftar kursi, durasi, dan batas lock aktif agar kursi tidak ditimbun bot.
+ * Jumlah kursi per pesanan tidak dibatasi; yang dibatasi adalah jumlah lock aktif dan laju permintaan.
+ */
 public final class LockPolicy {
-    public static final int MAX_SEATS = 4;
     public static final int MAX_ACTIVE_LOCKS = 2;
     public static final int MIN_TTL_SECONDS = 3;
 
@@ -13,7 +15,6 @@ public final class LockPolicy {
 
     public static void checkSeats(List<String> seats) {
         if (seats == null || seats.isEmpty()) throw new DomainException(422, "NO_SEATS", "Pilih minimal satu kursi.");
-        if (seats.size() > MAX_SEATS) throw new DomainException(422, "TOO_MANY_SEATS", "Maksimal " + MAX_SEATS + " kursi dalam satu pesanan.");
         if (new HashSet<>(seats).size() != seats.size()) throw new DomainException(422, "DUPLICATE_SEAT", "Ada kursi yang dipilih dua kali.");
     }
 

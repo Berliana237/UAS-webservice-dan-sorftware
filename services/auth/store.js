@@ -163,7 +163,8 @@ function seedClients() {
   const web = [`${config.publicUrl}/auth/callback`, `http://localhost:${config.ports.gateway}/auth/callback`, `https://localhost:${config.ports.gatewayTls}/auth/callback`];
   const conf = (s) => pii.sha256(s || crypto.randomBytes(32).toString('hex'));
   st.upsertClient.run('rangkai-web', 'Rangkai Web', 'public', null, JSON.stringify(web), JSON.stringify([]));
-  st.upsertClient.run('rangkai-postman', 'Postman', 'public', null, JSON.stringify(['https://oauth.pstmn.io/v1/callback', `http://localhost:${config.ports.gateway}/auth/callback`]), JSON.stringify([]));
+  st.upsertClient.run('rangkai-postman', 'Postman', 'public', null, JSON.stringify(['https://oauth.pstmn.io/v1/callback', `${config.publicUrl}/auth/callback`, `http://localhost:${config.ports.gateway}/auth/callback`,
+    `${config.publicUrl}/docs/swagger/oauth2-redirect.html`, `http://localhost:${config.ports.gateway}/docs/swagger/oauth2-redirect.html`]), JSON.stringify([]));
   st.upsertClient.run('svc-payment', 'Payment Service', 'confidential', conf(process.env.SVC_PAYMENT_CLIENT_SECRET), '[]', JSON.stringify(['internal:booking.read', 'internal:booking.write']));
   st.upsertClient.run('svc-booking', 'Booking Service', 'confidential', conf(process.env.SVC_BOOKING_CLIENT_SECRET), '[]', JSON.stringify(['internal:catalog.read']));
   st.upsertClient.run('partner-demo', 'Partner Demo', 'confidential', conf(process.env.PARTNER_DEMO_CLIENT_SECRET), '[]', JSON.stringify(['partner:read']));
@@ -172,16 +173,20 @@ function seedClients() {
 async function seedUsers() {
   const password = process.env.SEED_USER_PASSWORD;
   if (!password) return;
-  // Sinta punya profil lengkap untuk demo isi otomatis. Bima sengaja kosong.
-  const demo = [
+  // Akun pelanggan demo hanya untuk stack pengujian (SEED_DEMO_CUSTOMERS=1). Di stack biasa pelanggan mendaftar sendiri,
+  // sehingga data pelanggan tidak tercampur akun rekaan. Admin dan masinis selalu dibuat karena tidak bisa mendaftar sendiri.
+  const customers = process.env.SEED_DEMO_CUSTOMERS === '1' ? [
     { name: 'Sinta Maharani', email: 'customer@rangkai.test', role: 'customer', phone: '081234567890', nik: '3578015203990001', birthDate: '1999-03-12' },
     { name: 'Bima Pelanggan', email: 'customer2@rangkai.test', role: 'customer' },
+  ] : [];
+  const demo = [
+    ...customers,
     { name: 'Bagus Pratama', email: 'masinis@rangkai.test', role: 'masinis', phone: '081300001111', birthDate: '1985-07-21' },
     { name: 'Rina Kusuma', email: 'masinis2@rangkai.test', role: 'masinis', phone: '081300002222', birthDate: '1990-11-02' },
     { name: 'Arga Admin', email: 'admin@rangkai.test', role: 'admin' },
   ];
   for (const u of demo) if (!findUserByEmail(u.email)) await createUser({ ...u, password });
-  for (let i = 1; i <= config.loadUsers; i++) {
+  for (let i = 0; i < config.loadUsers; i++) {
     const email = `load${i}@rangkai.test`;
     if (!findUserByEmail(email)) await createUser({ name: `Load ${i}`, email, password, role: 'customer' });
   }

@@ -16,7 +16,7 @@ const { mask, maskString } = require('../../services/shared/log');
 const pii = require('../../services/shared/pii');
 const { matches, resolveQueues } = require('../../services/broker/routing');
 const { toNotification, rupiah } = require('../../services/notification/templates');
-const { adultFare, seatIds, COACHES, LINES } = require('../../services/catalog/seed');
+const { adultFare, seatIds, compose, coachOf, rowFacing, directedStops, TRAINS, STATIONS } = require('../../services/catalog/seed');
 const { depthLimitRule, fieldLimitRule } = require('../../services/catalog/graphql-guard');
 const { safeJoin } = require('../../services/gateway/static');
 const { buildSchema, parse, validate, specifiedRules } = require('graphql');
@@ -50,12 +50,11 @@ test('rate limiter: sweep membuang kunci yang lama diam', () => {
   assert.equal(l.buckets.size, 0);
 });
 
-test('skema lock: batas jumlah kursi (BVA 0, 1, 4, 5)', () => {
-  const body = (n) => ({ tripId: 'T', from: 'A', to: 'B', seats: Array.from({ length: n }, (_, i) => `EKS1-${i + 1}A`) });
+test('skema lock: minimal 1 kursi, tanpa batas jumlah per pesanan', () => {
+  const ids = Array.from({ length: 9 }, (_, c) => Array.from({ length: 18 }, (_, r) => ['A', 'B', 'C', 'D'].map((l) => `EKO${c + 1}-${r + 1}${l}`))).flat(2);
+  const body = (n) => ({ tripId: 'T', from: 'A', to: 'B', seats: ids.slice(0, n) });
   assert.ok(schemas.check('lock', body(0)));
-  assert.equal(schemas.check('lock', body(1)), null);
-  assert.equal(schemas.check('lock', body(4)), null);
-  assert.ok(schemas.check('lock', body(5)));
+  for (const n of [1, 4, 5, 72, 648]) assert.equal(schemas.check('lock', body(n)), null, `${n} kursi harus diterima`);
 });
 
 test('skema lock: format kursi, kursi kembar, dan field asing ditolak', () => {
@@ -175,15 +174,63 @@ test('templat notifikasi', () => {
   assert.equal(toNotification('tidak.dikenal', {}), null);
 });
 
-test('katalog: tarif, kursi, dan rute konsisten', () => {
-  assert.equal(adultFare('EKSEKUTIF', 155), 185000);
-  assert.equal(adultFare('PREMIUM', 1), 31000);
-  assert.equal(seatIds(COACHES[0]).length, 16);
-  assert.equal(new Set(COACHES.flatMap(seatIds)).size, COACHES.flatMap(seatIds).length);
-  for (const l of LINES) {
-    const km = l.stops.map((s) => s[2]);
-    assert.deepEqual(km, [...km].sort((a, b) => a - b), `km ${l.code} harus naik`);
+test('katalog: tarif per km dibulatkan ke atas per Rp1.000', () => {
+  // Gajayana eksekutif Gambir-Madiun 670 km: 60.000 + 880 x 670 = 649.600, dibulatkan 650.000.
+  assert.equal(adultFare({ base: 60000, perKm: 880 }, 670), 650000);
+  assert.equal(adultFare({ base: 150000, perKm: 2600 }, 670), 1892000);
+  assert.equal(adultFare({ base: 1000, perKm: 0 }, 1), 1000);
+});
+
+test('katalog: data KAI, 9 gerbong per rangkaian, rute naik', () => {
+  assert.equal(TRAINS.length, 8);
+  const codes = new Set(STATIONS.map((s) => s.code || s[0]));
+  for (const t of TRAINS) {
+    assert.equal(compose(t.composition).length, 9, `${t.name} harus 9 gerbong`);
+    const km = t.stops.map((s) => s[2]);
+    const min = t.stops.map((s) => s[1]);
+    for (let i = 1; i < km.length; i++) {
+      assert.ok(km[i] > km[i - 1] || t.id === 'JGM', `km ${t.id} harus naik`);
+      assert.ok(min[i] > min[i - 1], `menit ${t.id} harus naik`);
+    }
+    for (const [code] of t.stops) assert.ok(codes.has(code), `${t.id}: stasiun ${code} harus terdaftar`);
   }
+  const gjy = TRAINS.find((t) => t.id === 'GJY');
+  assert.deepEqual(gjy.stops.map((s) => s[0]), ['GMR', 'CN', 'PWT', 'YK', 'SLO', 'MN', 'KD', 'BL', 'ML']);
+});
+
+test('katalog: kursi unik, kursi berhadapan, dan Luxury satu arah', () => {
+  const coaches = compose('LUX1+EKS8');
+  const all = coaches.flatMap(seatIds);
+  assert.equal(new Set(all).size, all.length);
+  assert.equal(seatIds('EKS1').length, 13 * 4);
+  assert.equal(seatIds('LUX1').length, 9 * 2);
+  assert.ok(rowFacing('LUX').every((f) => f === 'F'), 'Luxury menghadap satu arah');
+  const eks = rowFacing('EKS');
+  assert.ok(eks.includes('B') && eks.includes('F'), 'Eksekutif punya baris yang berhadapan');
+  assert.equal(coachOf('LUX1').aisleAfter, 1);
+  assert.equal(coachOf('EKS2').aisleAfter, 2);
+});
+
+test('katalog: arah B adalah kebalikan rute A', () => {
+  const routeA = [{ code: 'A', minuteOffset: 0, km: 0 }, { code: 'B', minuteOffset: 30, km: 20 }, { code: 'C', minuteOffset: 90, km: 70 }];
+  const b = directedStops(routeA, 'B');
+  assert.deepEqual(b.map((s) => s.code), ['C', 'B', 'A']);
+  assert.deepEqual(b.map((s) => s.km), [0, 50, 70]);
+  assert.deepEqual(b.map((s) => s.minuteOffset), [0, 60, 90]);
+});
+
+test('NIK: cukup 16 digit angka, usia di bawah 17 boleh kosong', () => {
+  assert.equal(rules.validateNik('1234567890123456'), null);
+  assert.ok(rules.validateNik('123456789012345'));
+  assert.ok(rules.validateNik('12345678901234567'));
+  assert.ok(rules.validateNik('12345678901234ab'));
+});
+
+test('peran: masinis tidak bisa memesan, admin tidak bisa memesan', () => {
+  assert.deepEqual(rules.ROLES, ['customer', 'masinis', 'admin']);
+  assert.ok(!rules.scopesForRole('masinis').includes('booking:write'));
+  assert.ok(!rules.scopesForRole('admin').includes('booking:write'));
+  assert.ok(rules.scopesForRole('masinis').includes('checkin:write'));
 });
 
 test('GraphQL guard: query terlalu dalam dan terlalu besar ditolak', () => {

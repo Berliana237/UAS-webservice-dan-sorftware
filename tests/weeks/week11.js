@@ -10,7 +10,7 @@ async function queues(admin) {
 }
 
 async function booked(user, trip, seat) {
-  const l = await c.lockSeat(user.token, trip, 'SGU', 'MN', [seat]);
+  const l = await c.lockSeat(user.token, trip, 'GMR', 'MN', [seat]);
   const b = await c.createBooking(user.token, l.json.id, [seat]);
   return b.json;
 }
@@ -19,8 +19,10 @@ async function run({ stack } = {}) {
   const r = c.reporter('Demo Minggu 11: Message Queue', 'week-11');
   const admin = await c.login('admin@rangkai.test');
   const user = await c.registerUser('antrian');
-  const trip = await c.arunikaTrip(6);
-  const seat = () => `PRM1-${1 + Math.floor(Math.random() * 16)}A`;
+  const trip = await c.gajayanaTrip(6);
+  // Kursi berurutan dari titik acak, agar langkah-langkah dalam satu demo tidak saling bentrok kursi.
+  let seatNo = Math.floor(Math.random() * 52);
+  const seat = () => { seatNo += 1; return `EKS3-${1 + (Math.floor(seatNo / 4) % 13)}${'ABCD'[seatNo % 4]}`; };
 
   r.section('Alur event: pembayaran ke tiket ke notifikasi');
   const s1 = seat();
@@ -80,9 +82,9 @@ async function run({ stack } = {}) {
   stack.kill('broker');
   await sleep(700);
   const s3 = seat();
-  const l3 = await c.lockSeat(user.token, trip, 'SGU', 'MN', [s3]);
+  const l3 = await c.lockSeat(user.token, trip, 'GMR', 'MN', [s3]);
   const b3 = await c.createBooking(user.token, l3.json.id, [s3]);
-  r.check('W11-11', 'Pesanan tetap tersimpan saat broker mati', b3.status === 201, `status ${b3.status}`);
+  r.check('W11-11', 'Pesanan tetap tersimpan saat broker mati', b3.status === 201, `lock ${l3.status} ${l3.text.slice(0, 120)} | booking ${b3.status} ${b3.text.slice(0, 120)}`);
   const pending = await c.call('GET', '/api/admin/booking-stats', { token: admin.token });
   r.check('W11-12', 'Event tertahan aman di outbox', pending.json.outboxPending >= 1, `outbox ${pending.json.outboxPending}`);
   stack.start('broker');

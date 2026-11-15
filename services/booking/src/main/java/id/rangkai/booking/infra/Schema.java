@@ -25,6 +25,7 @@ public final class Schema {
         CREATE INDEX IF NOT EXISTS idx_booking_trip ON bookings(trip_id, status);
         CREATE INDEX IF NOT EXISTS idx_booking_lock ON bookings(lock_id);
         CREATE INDEX IF NOT EXISTS idx_booking_status ON bookings(status, expires_at);
+        CREATE INDEX IF NOT EXISTS idx_booking_depart ON bookings(status, departure_at);
         CREATE TABLE IF NOT EXISTS passengers(
           id TEXT PRIMARY KEY, booking_id TEXT NOT NULL REFERENCES bookings(id), seat_id TEXT NOT NULL, seat_class TEXT NOT NULL,
           name_enc TEXT NOT NULL, nik_enc TEXT, phone_enc TEXT, age INTEGER NOT NULL, passenger_type TEXT NOT NULL, fare INTEGER NOT NULL,

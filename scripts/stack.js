@@ -20,7 +20,7 @@ function plan(offset) {
   return [
     node('registry'), node('broker'), node('auth'), node('catalog'),
     booking('booking-a', 8781), ...(BOOKING_INSTANCES > 1 ? [booking('booking-b', 8782)] : []),
-    node('payment'), node('notification'), node('gateway'),
+    node('payment'), node('notification'), node('support'), node('gateway'),
   ];
 }
 

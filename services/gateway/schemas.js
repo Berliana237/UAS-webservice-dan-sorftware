@@ -4,6 +4,9 @@ const Ajv = require('ajv').default;
 
 const ajv = new Ajv({ allErrors: true, removeAdditional: false, strict: false });
 const id = { type: 'string', minLength: 1, maxLength: 80, pattern: '^[A-Za-z0-9_.:-]+$' };
+const str = (max) => ({ type: 'string', maxLength: max });
+const nullable = (max) => ({ type: ['string', 'null'], maxLength: max });
+const role = { type: 'string', enum: ['customer', 'masinis', 'admin'] };
 const seatId = { type: 'string', pattern: '^[A-Z0-9]{2,6}-[0-9]{1,2}[A-D]$' };
 
 const schemas = {
@@ -19,7 +22,8 @@ const schemas = {
     type: 'object', required: ['tripId', 'from', 'to', 'seats'], additionalProperties: false,
     properties: {
       tripId: id, from: id, to: id,
-      seats: { type: 'array', minItems: 1, maxItems: 4, uniqueItems: true, items: seatId },
+      // Tidak ada batas jumlah kursi per pesanan. 648 hanya batas teknis: kapasitas rangkaian terbesar (9 gerbong x 72 kursi).
+      seats: { type: 'array', minItems: 1, maxItems: 648, uniqueItems: true, items: seatId },
       ttlSeconds: { type: 'integer', minimum: 3, maximum: 3600 },
     },
   },
@@ -28,7 +32,7 @@ const schemas = {
     properties: {
       lockId: id,
       passengers: {
-        type: 'array', minItems: 1, maxItems: 4,
+        type: 'array', minItems: 1, maxItems: 648,
         items: {
           type: 'object', required: ['seatId', 'name', 'age'], additionalProperties: false,
           properties: {
@@ -41,7 +45,7 @@ const schemas = {
   },
   payment: {
     type: 'object', required: ['bookingId'], additionalProperties: false,
-    properties: { bookingId: id, method: { type: 'string', enum: ['QRIS', 'VA_BCA', 'VA_MANDIRI', 'CARD_TOKEN'] } },
+    properties: { bookingId: id, method: { type: 'string', enum: ['QRIS', 'VA_BCA', 'VA_MANDIRI'] } },
   },
   checkin: {
     type: 'object', required: ['ticketCode'], additionalProperties: false,
@@ -54,6 +58,49 @@ const schemas = {
   apiKey: {
     type: 'object', required: ['name'], additionalProperties: false,
     properties: { name: { type: 'string', maxLength: 60 }, scopes: { type: 'array', items: { type: 'string' } }, ratePerMin: { type: 'integer' }, expiresInDays: { type: 'integer' } },
+  },
+  profile: {
+    type: 'object', additionalProperties: false,
+    properties: { name: str(80), phone: nullable(20), nik: nullable(16), birthDate: nullable(10) },
+  },
+  changePassword: {
+    type: 'object', required: ['currentPassword', 'newPassword'], additionalProperties: false,
+    properties: { currentPassword: str(128), newPassword: str(128) },
+  },
+  adminUserCreate: {
+    type: 'object', required: ['name', 'email', 'password', 'role'], additionalProperties: false,
+    properties: { name: str(80), email: str(120), password: str(128), role: role, phone: nullable(20), nik: nullable(16), birthDate: nullable(10) },
+  },
+  adminUserUpdate: {
+    type: 'object', additionalProperties: false, minProperties: 1,
+    properties: { name: str(80), email: str(120), role: role, phone: nullable(20), nik: nullable(16), birthDate: nullable(10), active: { type: 'boolean' } },
+  },
+  role: { type: 'object', required: ['role'], additionalProperties: false, properties: { role } },
+  adminPassword: { type: 'object', required: ['password'], additionalProperties: false, properties: { password: str(128) } },
+  settings: {
+    type: 'object', required: ['seniorDiscountPercent'], additionalProperties: false,
+    properties: { seniorDiscountPercent: { type: 'integer', minimum: 0, maximum: 100 } },
+  },
+  tripStats: {
+    type: 'object', required: ['tripIds'], additionalProperties: false,
+    properties: { tripIds: { type: 'array', maxItems: 200, items: id } },
+  },
+  transferDecision: {
+    type: 'object', required: ['decision'], additionalProperties: false,
+    properties: { decision: { type: 'string', enum: ['ACCEPT', 'REJECT'] }, reason: str(300) },
+  },
+  proof: {
+    type: 'object', required: ['dataBase64'], additionalProperties: false,
+    properties: { fileName: str(120), dataBase64: { type: 'string', minLength: 1, maxLength: 4500000 }, note: str(300) },
+  },
+  supportChat: {
+    type: 'object', required: ['messages'], additionalProperties: false,
+    properties: {
+      messages: {
+        type: 'array', minItems: 1, maxItems: 20,
+        items: { type: 'object', required: ['role', 'content'], additionalProperties: false, properties: { role: { type: 'string', enum: ['user', 'assistant'] }, content: { type: 'string', minLength: 1, maxLength: 1000 } } },
+      },
+    },
   },
 };
 

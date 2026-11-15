@@ -9,7 +9,7 @@ from conftest import BASE_URL, Api, login, wib_date
 NIK = "3578015203990001"
 
 
-def lock(api, trip, seat, frm="SGU", to="MN", **extra):
+def lock(api, trip, seat, frm="GMR", to="MN", **extra):
     return api.post("/api/locks", json={"tripId": trip, "from": frm, "to": to, "seats": [seat], **extra}, idem=True)
 
 
@@ -48,10 +48,10 @@ class TestRegistration:
 
 class TestSchedule:
     @pytest.mark.parametrize("params,status", [
-        ({"from": "SGU", "to": "MN", "date": wib_date(1)}, 200),
-        ({"from": "SGU", "to": "SGU", "date": wib_date(1)}, 422),   # asal sama dengan tujuan
-        ({"from": "SGU", "to": "MN", "date": "2026/11/10"}, 422),   # format tanggal salah
-        ({"from": "SGU", "to": "MN"}, 422),                         # parameter kurang
+        ({"from": "GMR", "to": "MN", "date": wib_date(1)}, 200),
+        ({"from": "GMR", "to": "GMR", "date": wib_date(1)}, 422),   # asal sama dengan tujuan
+        ({"from": "GMR", "to": "MN", "date": "2026/11/10"}, 422),   # format tanggal salah
+        ({"from": "GMR", "to": "MN"}, 422),                         # parameter kurang
         ({"from": "XXX", "to": "MN", "date": wib_date(1)}, 200),    # stasiun tak dikenal: hasil kosong
     ])
     def test_search_partitions(self, anon, params, status):
@@ -62,25 +62,27 @@ class TestSchedule:
         assert data["count"] == 0
 
     def test_only_forward_direction(self, anon):
-        fwd = anon.get("/api/schedules", params={"from": "SGU", "to": "MN", "date": wib_date(2)}).json()
-        back = anon.get("/api/schedules", params={"from": "MN", "to": "SGU", "date": wib_date(2)}).json()
-        assert any(t["tripId"].startswith("ARN-") for t in fwd["trips"])
-        assert not any(t["tripId"].startswith("ARN-") for t in back["trips"])
+        fwd = anon.get("/api/schedules", params={"from": "GMR", "to": "MN", "date": wib_date(2)}).json()
+        back = anon.get("/api/schedules", params={"from": "MN", "to": "GMR", "date": wib_date(2)}).json()
+        # Kereta KAI berjalan dua arah. Arah balik memakai perjalanan arah B dengan ID berbeda.
+        assert any(t["tripId"].startswith("GJY-") and "-A" in t["tripId"] for t in fwd["trips"])
+        assert all("-B" in t["tripId"] for t in back["trips"] if t["tripId"].startswith("GJY-"))
 
     def test_fare_matches_formula_for_every_class(self, anon):
-        trip = anon.get("/api/schedules", params={"from": "SGU", "to": "MN", "date": wib_date(2)}).json()["trips"][0]
+        trip = anon.get("/api/schedules", params={"from": "GMR", "to": "MN", "date": wib_date(2)}).json()["trips"][0]
         fares = {f["seatClass"]: f["adult"] for f in trip["fares"]}
-        assert fares["EKSEKUTIF"] == 189000  # (45.000 + 900 x 160) dibulatkan ke atas
-        assert fares["PREMIUM"] == 114000
-        assert fares["SUITE"] == 411000
+        assert fares["EKSEKUTIF"] == 650000  # (60.000 + 880 x 670 km) dibulatkan ke atas per Rp1.000
+        assert fares["LUXURY"] == 1892000  # (150.000 + 2.600 x 670 km)
+        assert set(fares) == {"EKSEKUTIF", "LUXURY"}
 
 
 class TestLockInput:
-    @pytest.mark.parametrize("count,status", [(0, 422), (1, 201), (4, 201), (5, 422)])
+    # Jumlah kursi per pesanan tidak dibatasi. 0 kursi tetap ditolak.
+    @pytest.mark.parametrize("count,status", [(0, 422), (1, 201), (4, 201), (5, 201), (12, 201)])
     def test_seat_count_boundaries(self, fresh_user, trip_id, count, status):
-        seats = [f"EKS2-{time.time_ns() % 12 + 1}{'ABCD'[i % 4]}" if i < 4 else "EKS2-1A" for i in range(count)]
-        seats = list(dict.fromkeys(seats)) + (["EKS1-1A"] if count == 5 else [])
-        r = fresh_user.post("/api/locks", json={"tripId": trip_id, "from": "SGU", "to": "MR", "seats": seats}, idem=True)
+        base = time.time_ns() % 10
+        seats = [f"EKS2-{(base + i // 4) % 13 + 1}{'ABCD'[i % 4]}" for i in range(count)]
+        r = fresh_user.post("/api/locks", json={"tripId": trip_id, "from": "GMR", "to": "CN", "seats": seats}, idem=True)
         assert r.status_code in (status, 409 if status == 201 else status)
         release(fresh_user, r)
 
@@ -97,7 +99,7 @@ class TestLockInput:
             assert body["expiresAt"] - body["serverTime"] <= 601_000
         release(fresh_user, r)
 
-    @pytest.mark.parametrize("frm,to", [("MN", "SGU"), ("SGU", "SGU"), ("SGU", "GMR"), ("XXX", "MN")])
+    @pytest.mark.parametrize("frm,to", [("MN", "GMR"), ("GMR", "GMR"), ("GMR", "GMR"), ("XXX", "MN")])
     def test_invalid_segment(self, fresh_user, trip_id, seat, frm, to):
         r = lock(fresh_user, trip_id, seat, frm=frm, to=to)
         assert r.status_code == 422
@@ -119,8 +121,8 @@ class TestLockInput:
         assert lock(fresh_user, "TIDAK-ADA", seat).status_code == 404
 
     def test_active_lock_limit(self, fresh_user, trip_id):
-        held = [lock(fresh_user, trip_id, f"EKS1-{r}C", frm="SLO", to="YK") for r in (10, 11)]
-        third = lock(fresh_user, trip_id, "EKS1-12C", frm="SLO", to="YK")
+        held = [lock(fresh_user, trip_id, f"EKS1-{r}C", frm="BL", to="ML") for r in (10, 11)]
+        third = lock(fresh_user, trip_id, "EKS1-12C", frm="BL", to="ML")
         statuses = [h.status_code for h in held]
         if statuses == [201, 201]:
             assert third.status_code == 409
@@ -131,11 +133,11 @@ class TestLockInput:
 
 class TestSegments:
     @pytest.mark.parametrize("second,expected", [
-        (("MN", "YK"), 201),    # bersebelahan: boleh
-        (("JG", "NGW"), 409),   # menyeberangi batas
-        (("NJ", "MN"), 409),    # ruas terakhir pemegang pertama
-        (("SGU", "MR"), 409),   # ruas pertama pemegang pertama
-        (("NGW", "SLO"), 201),  # jauh setelah batas
+        (("MN", "ML"), 201),    # bersebelahan: boleh
+        (("PWT", "KD"), 409),   # menyeberangi batas
+        (("SLO", "MN"), 409),    # ruas terakhir pemegang pertama
+        (("GMR", "CN"), 409),   # ruas pertama pemegang pertama
+        (("KD", "BL"), 201),  # jauh setelah batas
     ])
     def test_overlap_decision(self, customer, other, trip_id, seat, second, expected):
         first = lock(customer, trip_id, seat)
@@ -151,14 +153,17 @@ class TestSegments:
 
 class TestPassengers:
     @pytest.mark.parametrize("age,nik,status,code", [
-        (2, None, 422, "INFANT_NO_SEAT"),
+        (0, None, 201, None),  # bayi boleh punya kursi sendiri, tanpa NIK
+        (2, None, 201, None),
         (3, None, 201, None),
         (16, None, 201, None),
         (17, None, 422, "NIK_REQUIRED"),
         (17, NIK, 201, None),
         (30, "123", 422, "INVALID_NIK"),
-        (30, "1001015203990001", 422, "INVALID_NIK"),
-        (30, "3578013203990001", 422, "INVALID_NIK"),
+        (30, "1001015203990001", 201, None),  # NIK tidak dicek ke data kependudukan, cukup 16 digit
+        (30, "1234567890123456", 201, None),
+        (30, "12345678901234567", 422, "SCHEMA_VALIDATION_FAILED"),  # 17 digit ditolak skema gateway
+        (30, "12345678901234ab", 422, "INVALID_NIK"),
         (120, NIK, 201, None),
     ])
     def test_age_and_nik_decision_table(self, fresh_user, trip_id, seat, age, nik, status, code):
@@ -176,16 +181,17 @@ class TestPassengers:
         else:
             fresh_user.post(f"/api/bookings/{r.json()['id']}/cancel")
 
-    @pytest.mark.parametrize("age,factor", [(3, 0.75), (11, 0.75), (12, 1.0), (59, 1.0), (60, 0.8)])
+    # Bayi, anak, dan dewasa bertarif normal. Lansia (60+) mendapat diskon 10 persen (default admin).
+    @pytest.mark.parametrize("age,factor", [(0, 1.0), (3, 1.0), (4, 1.0), (16, 1.0), (17, 1.0), (59, 1.0), (60, 0.9), (120, 0.9)])
     def test_fare_by_age_boundaries(self, fresh_user, trip_id, age, factor):
-        seat = f"PRM2-{time.time_ns() % 16 + 1}B"
-        lk = lock(fresh_user, trip_id, seat, frm="MN", to="NGW")
+        seat = f"EKS4-{time.time_ns() % 13 + 1}B"
+        lk = lock(fresh_user, trip_id, seat, frm="MN", to="KD")
         if lk.status_code != 201:
             pytest.skip("kursi acak sedang terpakai")
         pax = {"seatId": seat, "name": "Uji Tarif", "age": age, **({"nik": NIK} if age >= 17 else {})}
         r = fresh_user.post("/api/bookings", json={"lockId": lk.json()["id"], "passengers": [pax]}, idem=True)
         assert r.status_code == 201
-        adult = 48000  # Premium, 33 km: 30.000 + 520 x 33 = 47.160, dibulatkan ke atas
+        adult = 148000  # Gajayana eksekutif Madiun-Kediri 100 km: 60.000 + 880 x 100
         expected = ((int(adult * factor) + 999) // 1000) * 1000
         assert r.json()["amount"] == expected
         fresh_user.post(f"/api/bookings/{r.json()['id']}/cancel")

@@ -7,7 +7,7 @@ const c = require('../lib/client');
 const DURATION_MS = Number(process.env.LOAD_SECONDS || 30) * 1000;
 const READERS = Number(process.env.LOAD_READERS || 30);
 const WRITERS = Number(process.env.LOAD_WRITERS || 20);
-const STOPS = ['SGU', 'MR', 'JG', 'KTS', 'NJ', 'MN', 'NGW', 'SLO', 'YK'];
+const STOPS = ['GMR', 'CN', 'PWT', 'YK', 'SLO', 'MN', 'KD', 'BL', 'ML'];
 
 const pct = (arr, p) => { if (!arr.length) return 0; const s = [...arr].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor((p / 100) * s.length))]; };
 const rand = (n) => Math.floor(Math.random() * n);
@@ -15,7 +15,7 @@ const rand = (n) => Math.floor(Math.random() * n);
 async function main() {
   const r = c.reporter('Uji Beban (penggerak Node)', 'load-node');
   const tokens = await Promise.all(Array.from({ length: 60 }, (_, i) => c.login(`load${i + 1}@rangkai.test`).then((l) => l.token)));
-  const tripId = await c.arunikaTrip(14);
+  const tripId = await c.gajayanaTrip(14);
   const stop = Date.now() + DURATION_MS;
   const m = { seatmap: [], lock: [], statuses: {} };
   const note = (bucket, t0, status) => { m[bucket].push(Date.now() - t0); m.statuses[status] = (m.statuses[status] || 0) + 1; };

@@ -36,6 +36,8 @@ public final class Main {
 
         Db db = new Db(cfg.dataDir().resolve("booking.db"));
         db.script(Schema.DDL);
+        // Migrasi kecil untuk database lama: kolom keterlambatan per pesanan.
+        try { db.update("ALTER TABLE bookings ADD COLUMN delay_minutes INTEGER NOT NULL DEFAULT 0"); } catch (RuntimeException ignored) { /* kolom sudah ada */ }
 
         OutboxEvents events = new OutboxEvents(db);
         SqliteSeatStore store = new SqliteSeatStore(db);
@@ -67,7 +69,9 @@ public final class Main {
         new Workers(db, mtls, cfg, bookings).start();
         // Hanya instance pertama yang mengisi riwayat demo, supaya dua instance tidak berebut kunci tulis saat menyala.
         if ("booking-a".equals(cfg.instanceId())) {
-            new id.rangkai.booking.infra.HistorySeeder(db, new FieldCrypto(cfg.piiKey()), catalog, Integer.parseInt(System.getenv().getOrDefault("HISTORY_DAYS", "60"))).startInBackground();
+            // Pesanan fiktif untuk riwayat armada hanya dibuat bila diminta (SEED_DEMO_HISTORY=1). Data pelanggan sungguhan tidak tercampur data rekaan.
+            int historyDays = "1".equals(System.getenv("SEED_DEMO_HISTORY")) ? Integer.parseInt(System.getenv().getOrDefault("HISTORY_DAYS", "60")) : 0;
+            new id.rangkai.booking.infra.HistorySeeder(db, new FieldCrypto(cfg.piiKey()), catalog, historyDays).startInBackground();
         }
         Runtime.getRuntime().addShutdownHook(new Thread(() -> { server.stop(0); db.close(); }));
     }

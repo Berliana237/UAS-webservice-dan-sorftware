@@ -7,8 +7,10 @@
  * data-eyes / data-mouth / data-brow / data-fx / data-pose pada elemen induk (lihat kiko.css).
  *
  * Interaksi: tekan = kesal, tahan = geli, tahan lalu geser = terangkat dan menggelepar, lepas = jatuh membal,
- * klik dua kali = berputar gembira, arahkan kursor = menoleh, tombol Elus = bahagia. Lima kali ditekan beruntun:
- * Kiko meniup peluit dan kereta melintas di layar. Otonom: berkedip, melirik, lompat kecil, dan tertidur bila lama diam.
+ * klik dua kali = berputar gembira, arahkan kursor = menoleh, tombol Elus = bahagia, dielus lima kali = meniup peluit
+ * dan kereta melintas. Ditekan terus sampai marah (lima kali beruntun): Kiko menarik pistol mainan, menembak ke arah
+ * pengguna, layar padam sesaat, lalu mengancam. Bila diganggu lagi setelahnya, ia lebih cepat menembak lagi.
+ * Otonom: berkedip, melirik, lompat kecil, dan tertidur bila lama diam.
  */
 import { Sound } from './sound.js';
 import { reduceMotion } from './core.js';
@@ -35,11 +37,18 @@ const MOODS = {
   giggle: { eyes: 'happy', mouth: 'grin', brow: 'up', fx: 'blush sparkle' },
   lifted: { eyes: 'squeeze', mouth: 'grump', brow: 'sad', fx: 'blush sweat' },
   whistle: { eyes: 'annoy', mouth: 'whistle', brow: 'angry', fx: 'vein notes', pose: 'whistle' },
+  tootle: { eyes: 'happy', mouth: 'whistle', brow: 'up', fx: 'notes sparkle', pose: 'whistle' },
+  menace: { eyes: 'annoy', mouth: 'grump', brow: 'angry', fx: 'vein redblush' },
+  smug: { eyes: 'annoy', mouth: 'grin', brow: 'angry', fx: 'vein', pose: 'aim' },
 };
 
 const LINES = {
   poke: ['Eh, jangan ditekan-tekan!', 'Geli, tahu!', 'Saya lagi periksa karcis, lho.', 'Hmph! Kondektur juga punya perasaan.'],
-  warn: ['Awas ya, nanti saya tiup peluit!', 'Sekali lagi, peluitnya bunyi!'],
+  warn: ['Awas ya, saya mulai kesal!', 'Sekali lagi... saya tidak main-main.'],
+  draw: ['Sudah saya bilang, JANGAN.', 'Oke. Kamu yang minta.', 'Cukup sudah!'],
+  aim: ['Angkat tangan!', 'Jangan bergerak!', 'Diam di tempat!'],
+  threat: ['Sekali lagi ganggu, saya habisi kamu. Paham?', 'Itu peringatan. Berikutnya tidak meleset.', 'Masih mau tekan-tekan? Peluru saya masih banyak.'],
+  final: ['Sudah dibilang jangan! Ini yang terakhir!', 'Kamu tidak kapok, ya?'],
   lift: ['Turunkan saya! Kereta mau berangkat!', 'Kaki saya menggantung, tahu!', 'Saya bukan koper!', 'Lepas! Karcis saya bisa jatuh!'],
   drop: ['Aduh, topi saya miring.', 'Jangan sembarangan angkat kondektur!', 'Pusing...'],
   pat: ['Hehe, enak...', 'Terima kasih, penumpang baik.', 'Mrrr... lagi dong.', 'Saya jadi semangat periksa karcis!'],
@@ -181,6 +190,23 @@ function svg(u) {
       <g class="kk-cover"><rect x="78" y="110" width="36" height="28" rx="13" fill="#fbf6ea" stroke="#c9bfa9" stroke-width="2"/><rect x="126" y="110" width="36" height="28" rx="13" fill="#fbf6ea" stroke="#c9bfa9" stroke-width="2"/><path d="M86 114v20M94 112v24M102 112v24M134 112v24M142 112v24M150 114v20" stroke="#d8cfbb" stroke-width="2" stroke-linecap="round"/></g>
     </g>
 
+    <!-- lengan membidik dengan pistol mainan, menghadap pengguna -->
+    <g class="kk-aim">
+      <path d="M150 204C152 216 146 226 134 232" stroke="#234a3b" stroke-width="22" stroke-linecap="round" fill="none"/>
+      <path d="M124 236l20-11" stroke="url(#kBrass${u})" stroke-width="3" stroke-linecap="round"/>
+      <g class="kk-gun">
+        <g class="kk-flash"><polygon points="124,163 132,192 160,180 140,202 170,212 139,216 152,244 128,224 116,252 114,222 86,236 106,212 78,204 108,198 92,174 118,190" fill="#ffd36b"/><circle cx="124" cy="207" r="16" fill="#fff6d6"/></g>
+        <rect x="104" y="192" width="40" height="30" rx="7" fill="#2a2f35" stroke="#0f1215" stroke-width="2"/>
+        <rect x="119" y="186" width="10" height="8" rx="2" fill="#5c656e"/>
+        <circle cx="124" cy="207" r="12.5" fill="#3b424a" stroke="#14171a" stroke-width="2"/>
+        <circle cx="124" cy="207" r="8" fill="none" stroke="#7b848d" stroke-width="2"/>
+        <circle class="kk-bore" cx="124" cy="207" r="5" fill="#000"/>
+        <path d="M108 198q4-4 9-4" stroke="#8b949c" stroke-width="2" stroke-linecap="round" fill="none"/>
+        <g class="kk-smoke" fill="#d9d4c5"><circle cx="122" cy="178" r="7"/><circle cx="130" cy="164" r="9"/><circle cx="121" cy="148" r="11"/></g>
+      </g>
+      ${glove(132, 232)}
+    </g>
+
     <!-- tangan pengelus -->
     <g class="kk-hand"><rect x="102" y="-34" width="36" height="28" rx="14" fill="#fbf6ea" stroke="#c9bfa9" stroke-width="2"/><rect x="111" y="-10" width="18" height="12" rx="4" fill="#8b2f2a"/></g>
   </g></svg>`;
@@ -212,6 +238,19 @@ function trainPass() {
   setTimeout(() => { o.remove(); document.body.classList.remove('kk-rumble'); }, 2500);
 }
 
+/** Layar padam sesaat setelah tembakan. Satu kilatan saja (aman untuk fotosensitif); dilewati bila kurangi gerakan. */
+function blackout() {
+  if (reduceMotion()) return;
+  const o = document.createElement('div');
+  o.id = 'kk-black';
+  o.setAttribute('aria-hidden', 'true');
+  o.innerHTML = '<span>DOR!</span>';
+  document.body.append(o);
+  document.body.classList.add('kk-hit');
+  setTimeout(() => o.classList.add('out'), 820);
+  setTimeout(() => { o.remove(); document.body.classList.remove('kk-hit'); }, 1500);
+}
+
 let lastInteract = Date.now();
 const registry = [];
 
@@ -222,7 +261,7 @@ function build(host, opts = {}) {
   const drag = host.querySelector('.kk-drag');
   const say = host.querySelector('.kk-say');
   const look = [...host.querySelectorAll('.kk-look')];
-  const state = { held: false, lifted: false, x0: 0, y0: 0, timer: 0, sayTimer: 0, poseTimer: 0, pats: 0, holdTimer: 0, lastTap: 0, target: null, asleep: false, taps: 0, tapAt: 0, blowing: false };
+  const state = { held: false, lifted: false, x0: 0, y0: 0, timer: 0, sayTimer: 0, poseTimer: 0, pats: 0, holdTimer: 0, lastTap: 0, target: null, asleep: false, taps: 0, tapAt: 0, blowing: false, shotAt: 0, shootTimers: [] };
   const inst = { el: host, state };
 
   const setLook = (x, y) => look.forEach((l) => { l.style.transform = `translate(${x.toFixed(2)}px,${y.toFixed(2)}px)`; });
@@ -273,19 +312,54 @@ function build(host, opts = {}) {
   };
   inst.mood('idle');
 
+  /** Hadiah untuk penumpang yang rajin mengelus: peluit gembira dan kereta lewat. */
   function blowWhistle() {
     state.blowing = true;
     host.classList.add('blowing');
-    inst.mood('whistle');
-    inst.say('PRIIIIT! Kereta mau lewat!', 2400);
+    inst.mood('tootle');
+    inst.say('PRIIIIT! Kereta kesayangan lewat!', 2400);
     Sound.play('whistle');
     setTimeout(trainPass, 750);
     setTimeout(() => {
       host.classList.remove('blowing');
       state.blowing = false;
-      inst.mood('annoyed', 2600);
-      inst.say('Nah, jangan ditekan terus, ya!', 3000);
+      inst.mood('cheer', 2200);
     }, 2200);
+  }
+
+  /** Kiko marah: menarik pistol mainan, membidik pengguna, menembak, layar padam sesaat, lalu mengancam. */
+  function shoot() {
+    state.blowing = true;
+    const again = Date.now() - state.shotAt < 45000;
+    clearTimeout(state.timer);
+    inst.mood('menace');
+    inst.say(pick(again ? LINES.final : LINES.draw), 1500);
+    Sound.play('growl');
+    const later = (ms, fn) => state.shootTimers.push(setTimeout(fn, ms));
+    later(900, () => {
+      inst.pose('aim');
+      host.classList.add('aiming');
+      inst.say(pick(LINES.aim), 1400);
+      Sound.play('cock');
+    });
+    later(2050, () => {
+      host.classList.add('firing');
+      Sound.play('bang');
+      blackout();
+    });
+    later(2600, () => host.classList.remove('firing'));
+    later(reduceMotion() ? 2300 : 3150, () => {
+      inst.mood('smug');
+      host.dataset.pose = 'aim';
+      inst.say(pick(LINES.threat), 4600);
+    });
+    later(7600, () => {
+      host.classList.remove('aiming');
+      host.dataset.pose = '';
+      inst.mood('annoyed', 1800);
+      state.blowing = false;
+      state.shotAt = Date.now();
+    });
   }
 
   const onMove = (e) => {
@@ -353,7 +427,9 @@ function build(host, opts = {}) {
     if (!wasLifted && !wasTickled) {
       state.taps = now - state.tapAt < 8000 ? state.taps + 1 : 1;
       state.tapAt = now;
-      if (state.taps >= 5) { state.taps = 0; state.lastTap = 0; blowWhistle(); return; }
+      // Setelah pernah menembak, Kiko lebih cepat naik darah: tiga tekanan sudah cukup.
+      const limit = now - state.shotAt < 45000 ? 3 : 5;
+      if (state.taps >= limit) { state.taps = 0; state.lastTap = 0; shoot(); return; }
     }
     if (wasLifted) { Sound.play('drop'); inst.say(pick(LINES.drop), 3000); inst.mood('annoyed', 1800); Sound.play('hmph'); }
     else if (wasTickled) inst.mood('happy', 1200);
@@ -365,7 +441,7 @@ function build(host, opts = {}) {
       Sound.play('whee');
       return;
     } else {
-      inst.say(state.taps >= 3 ? pick(LINES.warn) : pick(LINES.poke), 2400);
+      inst.say(now - state.shotAt < 45000 ? 'Mau saya tembak lagi?' : state.taps >= 3 ? pick(LINES.warn) : pick(LINES.poke), 2400);
       inst.mood('annoyed', 1500);
       Sound.play('hmph');
     }
@@ -406,10 +482,14 @@ function build(host, opts = {}) {
       setTimeout(() => Sound.play('purr'), 380);
       inst.say(pick(LINES.pat), 2600);
       btn.querySelector('.cnt').textContent = `x${state.pats}`;
-      setTimeout(() => { host.classList.remove('patting'); inst.mood('happy', 1400); }, 2100);
+      setTimeout(() => {
+        host.classList.remove('patting');
+        if (state.pats % 5 === 0) blowWhistle(); else inst.mood('happy', 1400);
+      }, 2100);
     });
   }
   inst.destroy = () => {
+    state.shootTimers.forEach(clearTimeout);
     clearInterval(state.idleTimer);
     clearTimeout(state.timer);
     clearTimeout(state.sayTimer);

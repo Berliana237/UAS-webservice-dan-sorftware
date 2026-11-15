@@ -23,11 +23,14 @@ CREATE TABLE IF NOT EXISTS audit_log(seq INTEGER PRIMARY KEY AUTOINCREMENT, at I
 CREATE TABLE IF NOT EXISTS alerts(seq INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, kind TEXT NOT NULL, severity TEXT NOT NULL, service TEXT, target TEXT, meta TEXT);
 CREATE TABLE IF NOT EXISTS test_log(msg_id TEXT PRIMARY KEY, note TEXT, at INTEGER NOT NULL);
 `);
+try { db.exec('ALTER TABLE notifications ADD COLUMN tone TEXT'); } catch { /* kolom sudah ada */ }
 const st = {
   seen: db.prepare('INSERT OR IGNORE INTO processed(msg_id,at) VALUES(?,?)'),
-  addNotif: db.prepare('INSERT INTO notifications(id,user_id,kind,title,body,ref,created_at) VALUES(?,?,?,?,?,?,?)'),
+  addNotif: db.prepare('INSERT INTO notifications(id,user_id,kind,tone,title,body,ref,created_at) VALUES(?,?,?,?,?,?,?,?)'),
   listNotif: db.prepare('SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 50'),
-  readNotif: db.prepare('UPDATE notifications SET read_at=? WHERE id=? AND user_id=? AND read_at IS NULL'),
+  unread: db.prepare('SELECT COUNT(*) c FROM notifications WHERE user_id=? AND read_at IS NULL'),
+  readNotif: db.prepare('UPDATE notifications SET read_at=COALESCE(read_at,?) WHERE id=? AND user_id=?'),
+  readAll: db.prepare('UPDATE notifications SET read_at=? WHERE user_id=? AND read_at IS NULL'),
   addAudit: db.prepare('INSERT INTO audit_log(at,action,service,actor,target,ip,meta) VALUES(?,?,?,?,?,?,?)'),
   listAudit: db.prepare('SELECT * FROM audit_log ORDER BY seq DESC LIMIT ?'),
   addAlert: db.prepare('INSERT INTO alerts(at,kind,severity,service,target,meta) VALUES(?,?,?,?,?,?)'),
@@ -43,7 +46,7 @@ bus.consume('notification.events', async (m) => {
   if (m.topic === 'test.ping') { st.addTest.run(m.id, m.payload.note || '', Date.now()); return; }
   const n = toNotification(m.topic, m.payload);
   if (!n || !n.userId) return;
-  st.addNotif.run(crypto.randomUUID(), n.userId, n.kind, n.title, n.body, n.ref || null, Date.now());
+  st.addNotif.run(crypto.randomUUID(), n.userId, n.kind, n.tone || 'info', n.title, n.body, n.ref || null, Date.now());
   log.info('notifikasi dikirim (simulasi email/WhatsApp)', { topic: m.topic, user: n.userId, ref: n.ref });
 });
 
@@ -61,9 +64,18 @@ bus.consume('audit.events', async (m) => {
 const app = createApp('notification', log);
 const me = verifier.requireAuth();
 const auditor = verifier.requireAuth(['audit:read']);
-const publicNotif = (n) => ({ id: n.id, kind: n.kind, title: n.title, body: n.body, ref: n.ref, read: Boolean(n.read_at), createdAt: n.created_at });
+/** link menuntun pengguna langsung ke pesanan terkait di halaman Perjalanan saya. */
+const publicNotif = (n) => ({
+  id: n.id, kind: n.kind, tone: n.tone || 'info', title: n.title, body: n.body, ref: n.ref, link: n.kind === 'duty' ? `/masinis/perjalanan/${encodeURIComponent(n.ref)}` : n.ref ? `/perjalanan?pesanan=${encodeURIComponent(n.ref)}` : '/perjalanan',
+  read: Boolean(n.read_at), createdAt: n.created_at,
+});
 
-app.get('/api/notifications', me, (req, res) => res.json({ notifications: st.listNotif.all(req.user.sub).map(publicNotif) }));
+app.get('/api/notifications', me, (req, res) => {
+  const list = st.listNotif.all(req.user.sub).map(publicNotif);
+  res.json({ unread: st.unread.get(req.user.sub).c, notifications: req.query.unread === '1' ? list.filter((n) => !n.read) : list });
+});
+app.get('/api/notifications/unread-count', me, (req, res) => res.json({ unread: st.unread.get(req.user.sub).c }));
+app.post('/api/notifications/read-all', me, (req, res) => res.json({ updated: Number(st.readAll.run(Date.now(), req.user.sub).changes) }));
 app.post('/api/notifications/:id/read', me, (req, res) => {
   if (st.readNotif.run(Date.now(), req.params.id, req.user.sub).changes === 0) throw new ApiError(404, 'NOTIFICATION_NOT_FOUND', 'Notifikasi tidak ditemukan.');
   res.json({ read: true });

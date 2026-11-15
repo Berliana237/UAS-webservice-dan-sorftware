@@ -25,7 +25,7 @@ const COACH_TYPES = {
   PAN: { label: 'Panoramic', seatClass: 'LUXURY', letters: ['A', 'B', 'D'], rows: 12, facingStart: null },
 };
 
-/** Arah tiap baris: F menghadap ke depan kereta, B membelakangi. Pola tengah: F, B, F, B membentuk dua pasang kursi berhadapan. */
+/** Arah tiap baris: F menghadap ke ujung gerbong bernomor baris besar (arah laju), B sebaliknya. Pola tengah F,B,F,B: baris k menghadap k+1, k+2 menghadap k+3. */
 function rowFacing(type) {
   const t = COACH_TYPES[type];
   return Array.from({ length: t.rows }, (_, i) => {

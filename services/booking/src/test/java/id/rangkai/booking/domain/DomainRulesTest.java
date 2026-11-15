@@ -160,7 +160,7 @@ class DomainRulesTest {
         @ParameterizedTest(name = "{0} ke {1} = {2}")
         @CsvSource({
             "PENDING_PAYMENT,CONFIRMED,true", "PENDING_PAYMENT,CANCELLED,true", "PENDING_PAYMENT,EXPIRED,true", "PENDING_PAYMENT,CHECKED_IN,false",
-            "CONFIRMED,CHECKED_IN,true", "CONFIRMED,CANCELLED,true", "CONFIRMED,EXPIRED,false", "CONFIRMED,PENDING_PAYMENT,false",
+            "CONFIRMED,CHECKED_IN,true", "CONFIRMED,CANCELLED,true", "CONFIRMED,EXPIRED,false", "CONFIRMED,PENDING_PAYMENT,true", "CHECKED_IN,PENDING_PAYMENT,false",
             "CHECKED_IN,CANCELLED,false", "CANCELLED,CONFIRMED,false", "EXPIRED,CONFIRMED,false",
         })
         void transitions(BookingStatus from, BookingStatus to, boolean allowed) {
@@ -222,19 +222,18 @@ class DomainRulesTest {
     @Nested
     @DisplayName("LockPolicy")
     class Locks {
-        @ParameterizedTest(name = "{0} kursi diterima")
-        @ValueSource(ints = {1, 4})
+        @ParameterizedTest(name = "{0} kursi diterima, tanpa batas jumlah")
+        @ValueSource(ints = {1, 4, 5, 72, 648})
         void seatCountWithinLimit(int count) {
             List<String> seats = java.util.stream.IntStream.range(0, count).mapToObj(i -> "S" + i).toList();
             assertDoesNotThrow(() -> LockPolicy.checkSeats(seats));
         }
 
         @Test
-        @DisplayName("0 kursi, 5 kursi, dan kursi kembar ditolak")
+        @DisplayName("0 kursi dan kursi kembar ditolak")
         void invalidSeatLists() {
             assertAll(
                 () -> assertEquals("NO_SEATS", assertThrows(DomainException.class, () -> LockPolicy.checkSeats(List.of())).code()),
-                () -> assertEquals("TOO_MANY_SEATS", assertThrows(DomainException.class, () -> LockPolicy.checkSeats(List.of("1", "2", "3", "4", "5"))).code()),
                 () -> assertEquals("DUPLICATE_SEAT", assertThrows(DomainException.class, () -> LockPolicy.checkSeats(List.of("1", "1"))).code()));
         }
 

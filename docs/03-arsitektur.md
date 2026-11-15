@@ -15,12 +15,12 @@ Polyglot ini disengaja: tiap service independen dan hanya berkomunikasi lewat HT
 
 ## Model data seat locking
 
-Rute Arunika punya 9 stasiun, jadi 8 segmen (0 sampai 7).
+Rute Gajayana (KA 41) punya 9 stasiun, jadi 8 segmen (0 sampai 7).
 
 ```
-Stasiun  : SGU --0-- MR --1-- JG --2-- KTS --3-- NJ --4-- MN --5-- NGW --6-- SLO --7-- YK
-Sinta    : [=================================== 0..4 ==============]
-Bima     :                                                          [===== 5..7 ======]
+Stasiun  : GMR --0-- CN --1-- PWT --2-- YK --3-- SLO --4-- MN --5-- KD --6-- BL --7-- ML
+Sinta    : [=================== 0..4 ======================]
+Bima     :                                                  [====== 5..7 ======]
 ```
 
 Ruas dinyatakan sebagai rentang `[from, to)`. Dua rentang tumpang tindih bila `a.from < b.to && b.from < a.to`, sehingga berbagi stasiun Madiun bukan konflik.

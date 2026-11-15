@@ -4,7 +4,7 @@
  * Daftar: karcis tercetak mengikuti isian, tiap kolom yang benar membuat satu lubang pukulan kondektur.
  * Berhasil: pintu gerbong menutup lalu membuka ke halaman tujuan.
  */
-import { $, $$, api, beginLogin, completeLogin, currentUser, esc, go, restoreSession, sleep, toast } from '../core.js';
+import { $, $$, api, beginLogin, completeLogin, currentUser, esc, go, restoreSession, sleep, toast, roleHome } from '../core.js';
 import { Kiko } from '../kiko.js';
 import { doorsClose, doorsOpen, icon, scene } from '../ui.js';
 import { Sound } from '../sound.js';
@@ -62,10 +62,10 @@ export function render(main, { url, query }) {
           <div class="af"><input id="password" name="password" type="password" autocomplete="${mode === 'login' ? 'current-password' : 'new-password'}" placeholder=" " maxlength="72"><label for="password">Kata sandi</label>
             <button class="af-eye" id="eye" type="button" aria-pressed="false" aria-label="Tampilkan kata sandi">${icon.eye}</button><small id="h-password"></small><small class="caps" id="caps" hidden>Caps Lock aktif</small></div>
           <p class="auth-err" id="err" role="alert" hidden></p>
-          <button class="btn gold block" id="submit" type="submit"><span class="tx">${mode === 'login' ? 'Masuk' : 'Cetak karcis saya'}</span></button>
+          <button class="btn gold block" id="submit" type="submit"><span class="btn-label">${mode === 'login' ? 'Masuk' : 'Cetak karcis saya'}</span></button>
         </form>
         ${mode === 'login' ? `<details class="demo"><summary>Akun demo untuk penguji</summary><div class="demo-grid">
-          ${['customer', 'operator', 'admin'].map((r) => `<button type="button" class="btn ghost sm" data-demo="${r}@rangkai.test">${r === 'customer' ? 'Pelanggan' : r === 'operator' ? 'Operator' : 'Admin'}</button>`).join('')}
+          ${[['masinis', 'Masinis'], ['admin', 'Admin']].map(([r, t]) => `<button type="button" class="btn ghost sm" data-demo="${r}@rangkai.test">${t}</button>`).join('')}
           </div><p class="muted">Tombol ini mengisi email. Kata sandi demo ada di README.</p></details>` : ''}
       </div>
     </div>
@@ -74,7 +74,9 @@ export function render(main, { url, query }) {
   const kiko = Kiko.mount($('#auth-kiko'), { pat: true });
   const timers = [setTimeout(() => { kiko.mood('wink', 2400); kiko.say(mode === 'login' ? 'Silakan, karcisnya saya tunggu.' : 'Penumpang baru! Selamat datang.', 3000); kiko.pose('wave', 1600); }, 1100)];
 
-  restoreSession().then((ok) => { if (ok && currentUser() && main.contains($('#form'))) go(next, { replace: true }); });
+  // Tanpa tujuan khusus, tiap peran diarahkan ke halaman utamanya (admin ke panel admin, masinis ke dasbor masinis).
+  const target = (u) => (next === '/' ? roleHome(u?.role) : next);
+  restoreSession().then((ok) => { if (ok && !query?.get?.('auth_request') && currentUser() && main.contains($('#form'))) go(target(currentUser()), { replace: true }); });
 
   const form = $('#form');
   const err = $('#err');
@@ -133,12 +135,12 @@ export function render(main, { url, query }) {
 
   const succeed = async (user) => {
     sub.classList.add('okk');
-    $('.tx', sub).textContent = mode === 'login' ? `Silakan naik, ${(user.name || '').split(' ')[0]}` : 'Karcis tercetak';
+    $('.btn-label', sub).textContent = mode === 'login' ? `Silakan naik, ${(user.name || '').split(' ')[0]}` : 'Karcis tercetak';
     Kiko.react('sukses', mode === 'login' ? 'Karcis sah. Silakan naik!' : 'Selamat bergabung!', 1800);
     if (mode === 'signup') $('.printing')?.classList.add('stamped');
     await sleep(mode === 'signup' ? 1200 : 750);
     await doorsClose();
-    await go(next, { replace: true });
+    await go(target(user), { replace: true });
     setTimeout(doorsOpen, 120);
   };
 
@@ -150,10 +152,17 @@ export function render(main, { url, query }) {
     if (!ok) { showErr('Periksa kolom yang ditandai.'); Kiko.react('bingung', 'Ada yang belum pas. Lihat kolom merah, ya.'); Sound.play('fail'); inputs.find((i) => i.parentElement.classList.contains('bad'))?.focus(); return; }
     sub.disabled = true;
     sub.classList.add('busy');
-    $('.tx', sub).insertAdjacentHTML('beforebegin', '<span class="spin" aria-hidden="true"></span>');
+    $('.btn-label', sub).insertAdjacentHTML('beforebegin', '<span class="spin" aria-hidden="true"></span>');
     kiko.mood('thinking');
     try {
       if (mode === 'signup') await api('/api/auth/register', { method: 'POST', noAuth: true, body: { name: $('#name').value.trim(), email: $('#email').value.trim(), password: pw.value } });
+      // Klien OAuth2 eksternal (Swagger UI, Postman) datang lewat /oauth/authorize dengan auth_request: kode dikembalikan ke redirect_uri klien itu.
+      const extReq = mode === 'login' && query?.get?.('auth_request');
+      if (extReq) {
+        const r = await api('/oauth/login', { method: 'POST', noAuth: true, body: { auth_request: extReq, email: $('#email').value.trim(), password: pw.value } });
+        location.href = r.redirect_to;
+        return;
+      }
       const f = await ensureFlow();
       const user = await completeLogin(f, $('#email').value.trim(), pw.value);
       $('.spin', sub)?.remove();

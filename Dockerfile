@@ -1,4 +1,4 @@
-# Satu image untuk semua service. render.yaml menjalankan semuanya dalam satu container,
+# Satu image untuk semua service. Railway (railway.json) menjalankan semuanya dalam satu container,
 # docker-compose.yml menjalankan tiap service di container sendiri (mTLS benar-benar lintas container).
 FROM maven:3.9-eclipse-temurin-21 AS build-java
 WORKDIR /src

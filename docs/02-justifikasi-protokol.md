@@ -15,7 +15,7 @@ gRPC tidak bisa dipanggil langsung dari browser, butuh file `.proto` dan tool kh
 
 ## Mengapa operasi tulis tetap REST
 
-Operasi tulis utama membutuhkan hal yang lebih alami di REST: status HTTP yang jelas (201, 409, 429), header `Idempotency-Key`, dan rate limit per rute di gateway. Mutation GraphQL hanya dipakai untuk fungsi operator (`createTrip`, `updateTripStatus`) dan dilindungi scope `schedule:write`.
+Operasi tulis utama membutuhkan hal yang lebih alami di REST: status HTTP yang jelas (201, 409, 429), header `Idempotency-Key`, dan rate limit per rute di gateway. Mutation GraphQL hanya dipakai untuk fungsi admin (`createTrip`, `updateTripStatus`) dan dilindungi scope `schedule:write`. Masinis melaporkan keterlambatan lewat REST `PATCH /api/masinis/trips/{id}/delay`.
 
 ## Risiko GraphQL dan penanganannya
 

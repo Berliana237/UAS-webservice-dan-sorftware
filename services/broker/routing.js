@@ -1,7 +1,7 @@
 'use strict';
 /** Routing topik ke antrian. Pola memakai wildcard di akhir, seperti topic exchange. */
 const BINDINGS = [
-  { queue: 'booking.events', patterns: ['payment.succeeded', 'payment.failed', 'trip.cancelled'] },
+  { queue: 'booking.events', patterns: ['payment.succeeded', 'payment.failed', 'payment.reversed', 'trip.cancelled', 'trip.delayed', 'trip.updated'] },
   { queue: 'payment.events', patterns: ['payment.refund_required', 'booking.cancelled'] },
   { queue: 'notification.events', patterns: ['booking.*', 'payment.*', 'seat.lock.expired', 'trip.*', 'test.*'] },
   { queue: 'audit.events', patterns: ['audit.*', 'security.*'] },

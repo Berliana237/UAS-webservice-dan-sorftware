@@ -77,23 +77,36 @@ const pkceFlow = (label, prefix, emailVar, tokenVar, extra = '') => [
 const setup = folder('00 Persiapan', 'Wajib dijalankan pertama. Memeriksa sistem dan menyiapkan token semua peran serta variabel perjalanan.', [
   req('Kesehatan gateway', 'GET', '/healthz', { tests: `${expectStatus(200)}
     pm.test('Gateway UP', () => pm.expect(pm.response.json().status).to.eql('UP'));` }),
+  // Pelanggan tidak dibuat otomatis di stack biasa, jadi koleksi mendaftarkan dua akun pelanggan sendiri setiap kali dijalankan.
+  req('Daftarkan pelanggan uji 1', 'POST', '/api/auth/register', {
+    prereq: `
+    const id = String(Date.now());
+    pm.collectionVariables.set('runId', id);
+    pm.collectionVariables.set('customerEmail', 'pelanggan.' + id + '@uji.rangkai');
+    pm.collectionVariables.set('customer2Email', 'pelanggan2.' + id + '@uji.rangkai');`,
+    body: { name: 'Sinta Maharani', email: '{{customerEmail}}', password: '{{seedPassword}}' }, tests: expectStatus(201),
+  }),
+  req('Daftarkan pelanggan uji 2', 'POST', '/api/auth/register', { body: { name: 'Bima Pelanggan', email: '{{customer2Email}}', password: '{{seedPassword}}' }, tests: expectStatus(201) }),
   ...pkceFlow('Pelanggan', 'cust', 'customerEmail', 'customerToken'),
   ...pkceFlow('Pelanggan 2', 'cust2', 'customer2Email', 'customer2Token'),
-  ...pkceFlow('Operator', 'oper', 'operatorEmail', 'operatorToken'),
+  ...pkceFlow('Masinis', 'mas', 'masinisEmail', 'masinisToken'),
   ...pkceFlow('Admin', 'admin', 'adminEmail', 'adminToken'),
-  req('Pilih perjalanan Arunika', 'GET', '/api/schedules?from=SGU&to=YK&date={{tripDate}}', {
+  req('Pilih perjalanan Gajayana', 'GET', '/api/schedules?from=GMR&to=ML&date={{tripDate}}', {
     prereq: `
     const day = 6 + Math.floor(Math.random() * 18);
     const d = new Date(Date.now() + day * 86400000 + 7 * 3600000).toISOString().slice(0, 10);
     pm.collectionVariables.set('tripDate', d);
     const rnd = (n) => 1 + Math.floor(Math.random() * n);
-    pm.collectionVariables.set('seatA', 'PRM1-' + rnd(16) + 'A');
-    pm.collectionVariables.set('seatB', 'PRM2-' + rnd(16) + 'B');
-    pm.collectionVariables.set('seatC', 'EKS1-' + rnd(12) + 'C');
+    // Gajayana: LUX1 lalu EKS1 sampai EKS8, tiap gerbong eksekutif 13 baris (A-D). Gerbong dipisah agar kursi tidak bentrok.
+    pm.collectionVariables.set('seatA', 'EKS' + rnd(2) + '-' + rnd(13) + 'A');
+    pm.collectionVariables.set('seatB', 'EKS' + (2 + rnd(2)) + '-' + rnd(13) + 'B');
+    pm.collectionVariables.set('seatC', 'EKS' + (4 + rnd(2)) + '-' + rnd(13) + 'C');
+    pm.collectionVariables.set('seatD', 'EKS' + (6 + rnd(1)) + '-' + rnd(13) + 'D');
+    pm.collectionVariables.set('seatE', 'EKS' + (6 + rnd(2)) + '-' + rnd(13) + 'A');
     pm.collectionVariables.set('runId', String(Date.now()));`,
     tests: `${expectStatus(200)}
-    const t = pm.response.json().trips.find((x) => x.tripId.startsWith('ARN-'));
-    pm.test('Perjalanan Arunika ditemukan', () => pm.expect(t).to.be.an('object'));
+    const t = pm.response.json().trips.find((x) => x.tripId.startsWith('GJY-'));
+    pm.test('Perjalanan Gajayana ditemukan', () => pm.expect(t).to.be.an('object'));
     pm.collectionVariables.set('tripId', t.tripId);`,
   }),
 ]);
@@ -159,7 +172,7 @@ const week8 = folder('Minggu 8 - Keamanan Lanjutan', 'OAuth2 Authorization Code 
   ]),
   folder('RBAC', '', [
     req('Pelanggan ke rute admin', 'GET', '/api/admin/users', { auth: 'customerToken', tests: expectStatus(403) }),
-    req('Operator ke audit', 'GET', '/api/admin/audit', { auth: 'operatorToken', tests: expectStatus(403) }),
+    req('Masinis ke audit', 'GET', '/api/admin/audit', { auth: 'masinisToken', tests: expectStatus(403) }),
     req('Admin ke rute admin', 'GET', '/api/admin/users', { auth: 'adminToken', tests: `${expectStatus(200)}
     pm.test('Hash kata sandi tidak bocor', () => pm.expect(pm.response.text()).to.not.include('scrypt'));` }),
     req('Admin tidak bisa mengubah perannya sendiri', 'PATCH', '/api/admin/users/{{adminId}}/role', {
@@ -302,24 +315,24 @@ const graph = (name, query, variables, tests, auth) => req(name, 'POST', '/graph
 const graphqlFolder = folder('GraphQL', 'Protokol non-REST. Justifikasi ada di docs/02-justifikasi-protokol.md.', [
   graph('Query: stasiun', '{ stations { code name city } }', {}, `${expectStatus(200)}
     pm.test('Ada stasiun', () => pm.expect(pm.response.json().data.stations.length).to.be.above(20));`),
-  graph('Query: cari perjalanan', 'query Cari($from: String!, $to: String!, $date: String!) {\n  searchTrips(from: $from, to: $to, date: $date) {\n    trip { id trainName status }\n    from { departAt station { name } }\n    to { arriveAt station { name } }\n    durationMinutes km availableSeats\n    fares { seatClass adult }\n  }\n}', { from: 'SGU', to: 'MN', date: '{{tripDate}}' }, `${expectStatus(200)}
+  graph('Query: cari perjalanan', 'query Cari($from: String!, $to: String!, $date: String!) {\n  searchTrips(from: $from, to: $to, date: $date) {\n    trip { id trainName status }\n    from { departAt station { name } }\n    to { arriveAt station { name } }\n    durationMinutes km availableSeats\n    fares { seatClass adult }\n  }\n}', { from: 'GMR', to: 'MN', date: '{{tripDate}}' }, `${expectStatus(200)}
     pm.test('Menemukan perjalanan', () => pm.expect(pm.response.json().data.searchTrips.length).to.be.above(0));`),
-  graph('Query: peta kursi per segmen', 'query Peta($id: ID!) {\n  seatMap(tripId: $id, from: "SGU", to: "MN") {\n    fromIndex toIndex km available total\n    segments { index from { name } to { name } km }\n    coaches { coach { code seatClass } adultFare available seats { id status segments { index status } } }\n  }\n}', { id: '{{tripId}}' }, `${expectStatus(200)}
+  graph('Query: peta kursi per segmen', 'query Peta($id: ID!) {\n  seatMap(tripId: $id, from: "GMR", to: "MN") {\n    fromIndex toIndex km available total\n    segments { index from { name } to { name } km }\n    coaches { coach { code seatClass } adultFare available seats { id status segments { index status } } }\n  }\n}', { id: '{{tripId}}' }, `${expectStatus(200)}
     const m = pm.response.json().data.seatMap;
-    pm.test('Ruas Surabaya-Madiun adalah segmen 0 sampai 5', () => { pm.expect(m.fromIndex).to.eql(0); pm.expect(m.toIndex).to.eql(5); });
-    pm.test('Lima gerbong', () => pm.expect(m.coaches.length).to.eql(5));`),
-  graph('Query: klien hanya meminta field yang perlu', 'query Ringkas($id: ID!) { seatMap(tripId: $id, from: "SGU", to: "YK") { available total } }', { id: '{{tripId}}' }, `${expectStatus(200)}
+    pm.test('Ruas Gambir-Madiun adalah segmen 0 sampai 5', () => { pm.expect(m.fromIndex).to.eql(0); pm.expect(m.toIndex).to.eql(5); });
+    pm.test('Sembilan gerbong', () => pm.expect(m.coaches.length).to.eql(9));`),
+  graph('Query: klien hanya meminta field yang perlu', 'query Ringkas($id: ID!) { seatMap(tripId: $id, from: "GMR", to: "YK") { available total } }', { id: '{{tripId}}' }, `${expectStatus(200)}
     pm.test('Respons hanya berisi field yang diminta', () => pm.expect(Object.keys(pm.response.json().data.seatMap)).to.have.members(['available', 'total']));`),
   graph('Query: papan keberangkatan', '{ upcomingDepartures(limit: 5) { trainName fromName toName departureAt status } }', {}, expectStatus(200)),
   graph('Validasi: field tidak ada', '{ stations { tidakAda } }', {}, `${expectStatus(400)}
     pm.test('Kode validasi', () => pm.expect(pm.response.json().errors[0].extensions.code).to.eql('GRAPHQL_VALIDATION_FAILED'));`),
   graph('Validasi: query terlalu besar', `{ ${Array.from({ length: 205 }, (_, i) => `a${i}: stations { code }`).join(' ')} }`, {}, `${expectStatus(400)}
     pm.test('Ditolak batas ukuran', () => pm.expect(pm.response.json().errors[0].extensions.code).to.eql('QUERY_TOO_LARGE'));`),
-  graph('Validasi: ruas terbalik', 'query($id: ID!) { seatMap(tripId: $id, from: "MN", to: "SGU") { available } }', { id: '{{tripId}}' }, `pm.test('Error INVALID_SEGMENT', () => pm.expect(pm.response.json().errors[0].extensions.code).to.eql('INVALID_SEGMENT'));`),
+  graph('Validasi: ruas terbalik', 'query($id: ID!) { seatMap(tripId: $id, from: "MN", to: "GMR") { available } }', { id: '{{tripId}}' }, `pm.test('Error INVALID_SEGMENT', () => pm.expect(pm.response.json().errors[0].extensions.code).to.eql('INVALID_SEGMENT'));`),
   graph('Mutation tanpa hak', 'mutation($id: ID!) { updateTripStatus(id: $id, status: DELAYED, delayMinutes: 10) { id } }', { id: '{{tripId}}' }, `pm.test('Ditolak', () => pm.expect(pm.response.json().errors[0].extensions.code).to.eql('INSUFFICIENT_SCOPE'));`, 'customerToken'),
-  graph('Mutation: operator menandai terlambat', 'mutation($id: ID!) { updateTripStatus(id: $id, status: DELAYED, delayMinutes: 10) { id status delayMinutes } }', { id: '{{tripId}}' }, `${expectStatus(200)}
-    pm.test('Status DELAYED', () => pm.expect(pm.response.json().data.updateTripStatus.status).to.eql('DELAYED'));`, 'operatorToken'),
-  graph('Mutation: kembalikan status', 'mutation($id: ID!) { updateTripStatus(id: $id, status: SCHEDULED) { status } }', { id: '{{tripId}}' }, expectStatus(200), 'operatorToken'),
+  graph('Mutation: admin menandai terlambat', 'mutation($id: ID!) { updateTripStatus(id: $id, status: DELAYED, delayMinutes: 10) { id status delayMinutes } }', { id: '{{tripId}}' }, `${expectStatus(200)}
+    pm.test('Status DELAYED', () => pm.expect(pm.response.json().data.updateTripStatus.status).to.eql('DELAYED'));`, 'adminToken'),
+  graph('Mutation: kembalikan status', 'mutation($id: ID!) { updateTripStatus(id: $id, status: SCHEDULED) { status } }', { id: '{{tripId}}' }, expectStatus(200), 'adminToken'),
 ]);
 
 const SIGN_WEBHOOK = `
@@ -331,73 +344,74 @@ const SIGN_WEBHOOK = `
 const flow = folder('Alur Reservasi per Segmen', 'Inti sistem: satu kursi dipakai beberapa ruas, seat lock dengan TTL, idempotency, pesanan, pembayaran lewat webhook, tiket, dan pembatalan.', [
   folder('Jadwal REST', '', [
     req('Daftar stasiun', 'GET', '/api/stations', { tests: expectStatus(200) }),
-    req('Cari jadwal', 'GET', '/api/schedules?from=SGU&to=MN&date={{tripDate}}', { tests: `${expectStatus(200)}
+    req('Cari jadwal', 'GET', '/api/schedules?from=GMR&to=MN&date={{tripDate}}', { tests: `${expectStatus(200)}
     const t = pm.response.json().trips.find((x) => x.tripId === pm.collectionVariables.get('tripId'));
-    pm.test('Tarif eksekutif sesuai rumus', () => pm.expect(t.fares.find((f) => f.seatClass === 'EKSEKUTIF').adult).to.eql(189000));` }),
-    req('Tanggal salah format', 'GET', '/api/schedules?from=SGU&to=MN&date=besok', { tests: expectStatus(422) }),
-    req('Asal sama dengan tujuan', 'GET', '/api/schedules?from=SGU&to=SGU&date={{tripDate}}', { tests: expectStatus(422) }),
+    pm.test('Tarif eksekutif sesuai rumus', () => pm.expect(t.fares.find((f) => f.seatClass === 'EKSEKUTIF').adult).to.eql(650000));` }),
+    req('Tanggal salah format', 'GET', '/api/schedules?from=GMR&to=MN&date=besok', { tests: expectStatus(422) }),
+    req('Asal sama dengan tujuan', 'GET', '/api/schedules?from=GMR&to=GMR&date={{tripDate}}', { tests: expectStatus(422) }),
     req('Detail perjalanan', 'GET', '/api/trips/{{tripId}}', { tests: `${expectStatus(200)}
     pm.test('Sembilan stasiun', () => pm.expect(pm.response.json().trip.stops.length).to.eql(9));` }),
     req('Perjalanan tidak ada', 'GET', '/api/trips/TIDAK-ADA', { tests: expectStatus(404) }),
-    req('Peta kursi REST', 'GET', '/api/trips/{{tripId}}/seats?from=SGU&to=MN', { tests: expectStatus(200) }),
-    req('Operator membuat perjalanan', 'POST', '/api/trips', {
-      auth: 'operatorToken', prereq: `
+    req('Peta kursi REST', 'GET', '/api/trips/{{tripId}}/seats?from=GMR&to=MN', { tests: expectStatus(200) }),
+    req('Admin membuat perjalanan tambahan', 'POST', '/api/trips', {
+      auth: 'adminToken', prereq: `
     const dep = new Date(Date.now() + 29 * 86400000 + 7 * 3600000).toISOString().slice(0, 10);
     const minute = String(Date.now() % 60).padStart(2, '0');
     const hour = String(10 + (Date.now() % 12)).padStart(2, '0');
     pm.collectionVariables.set('newDate', dep);
     pm.collectionVariables.set('newTime', hour + ':' + minute);`,
-      body: { lineCode: 'ARN', serviceDate: '{{newDate}}', departureTime: '{{newTime}}' },
+      body: { trainId: 'GJY', direction: 'A', serviceDate: '{{newDate}}', departureTime: '{{newTime}}' },
       tests: `${expectStatus(201)}
     pm.collectionVariables.set('newTripId', pm.response.json().trip.id);`,
     }),
-    req('Pelanggan tidak boleh membuat perjalanan', 'POST', '/api/trips', { auth: 'customerToken', body: { lineCode: 'ARN', serviceDate: '{{newDate}}', departureTime: '23:59' }, tests: expectStatus(403) }),
+    req('Pelanggan tidak boleh membuat perjalanan', 'POST', '/api/trips', { auth: 'customerToken', body: { trainId: 'GJY', direction: 'A', serviceDate: '{{newDate}}', departureTime: '23:59' }, tests: expectStatus(403) }),
   ]),
   folder('Seat locking per segmen', '', [
-    req('Tahan kursi: Surabaya ke Madiun', 'POST', '/api/locks', { auth: 'customerToken', headers: idem, body: { tripId: '{{tripId}}', from: 'SGU', to: 'MN', seats: ['{{seatA}}'] }, tests: `${expectStatus(201)}
+    req('Tahan kursi: Gambir ke Madiun', 'POST', '/api/locks', { auth: 'customerToken', headers: idem, body: { tripId: '{{tripId}}', from: 'GMR', to: 'MN', seats: ['{{seatA}}'] }, tests: `${expectStatus(201)}
     const j = pm.response.json();
     pm.test('Segmen 0 sampai 5', () => { pm.expect(j.fromIndex).to.eql(0); pm.expect(j.toIndex).to.eql(5); });
     pm.test('TTL sekitar 10 menit', () => pm.expect(j.expiresAt - j.serverTime).to.be.within(590000, 601000));
     pm.collectionVariables.set('lockA', j.id);` }),
-    req('Ruas tumpang tindih ditolak', 'POST', '/api/locks', { auth: 'customer2Token', headers: idem, body: { tripId: '{{tripId}}', from: 'JG', to: 'NGW', seats: ['{{seatA}}'] },
+    req('Ruas tumpang tindih ditolak', 'POST', '/api/locks', { auth: 'customer2Token', headers: idem, body: { tripId: '{{tripId}}', from: 'PWT', to: 'KD', seats: ['{{seatA}}'] },
       tests: `${expectStatus(409)}
     const e = pm.response.json().error;
     pm.test('Kode SEAT_CONFLICT', () => pm.expect(e.code).to.eql('SEAT_CONFLICT'));
     pm.test('Menyebut segmen yang bentrok', () => pm.expect(e.details.conflicts.length).to.be.above(0));` }),
-    req('Kursi sama, Madiun ke Yogyakarta: berhasil', 'POST', '/api/locks', { auth: 'customer2Token', headers: idem, body: { tripId: '{{tripId}}', from: 'MN', to: 'YK', seats: ['{{seatA}}'] }, tests: `${expectStatus(201)}
+    req('Kursi sama, Madiun ke Malang: berhasil', 'POST', '/api/locks', { auth: 'customer2Token', headers: idem, body: { tripId: '{{tripId}}', from: 'MN', to: 'ML', seats: ['{{seatA}}'] }, tests: `${expectStatus(201)}
     pm.collectionVariables.set('lockB', pm.response.json().id);` }),
-    req('Ketersediaan per ruas', 'GET', '/api/trips/{{tripId}}/availability?from=SGU&to=MN', { tests: `${expectStatus(200)}
+    req('Ketersediaan per ruas', 'GET', '/api/trips/{{tripId}}/availability?from=GMR&to=MN', { tests: `${expectStatus(200)}
     pm.test('Kursi tampil LOCKED', () => pm.expect(pm.response.json().taken.find((t) => t.seatId === pm.collectionVariables.get('seatA')).status).to.eql('LOCKED'));` }),
     req('Lepas lock kedua', 'DELETE', '/api/locks/{{lockB}}', { auth: 'customer2Token', tests: expectStatus(200) }),
     req('Lepas lock yang sudah dilepas', 'DELETE', '/api/locks/{{lockB}}', { auth: 'customer2Token', tests: `${expectStatus(409)}
     pm.test('LOCK_NOT_ACTIVE', () => pm.expect(pm.response.json().error.code).to.eql('LOCK_NOT_ACTIVE'));` }),
     req('Lock orang lain tidak terlihat', 'GET', '/api/locks/{{lockA}}', { auth: 'customer2Token', tests: expectStatus(404) }),
-    req('Tanpa Idempotency-Key', 'POST', '/api/locks', { auth: 'customerToken', body: { tripId: '{{tripId}}', from: 'SGU', to: 'MR', seats: ['{{seatB}}'] }, tests: expectStatus(400) }),
-    req('Idempotency: kiriman pertama', 'POST', '/api/locks', { auth: 'customerToken', headers: { 'Idempotency-Key': 'postman-{{runId}}-a' }, body: { tripId: '{{tripId}}', from: 'SGU', to: 'MR', seats: ['{{seatB}}'] }, tests: `${expectStatus(201)}
+    req('Tanpa Idempotency-Key', 'POST', '/api/locks', { auth: 'customerToken', body: { tripId: '{{tripId}}', from: 'GMR', to: 'CN', seats: ['{{seatB}}'] }, tests: expectStatus(400) }),
+    req('Idempotency: kiriman pertama', 'POST', '/api/locks', { auth: 'customerToken', headers: { 'Idempotency-Key': 'postman-{{runId}}-a' }, body: { tripId: '{{tripId}}', from: 'GMR', to: 'CN', seats: ['{{seatB}}'] }, tests: `${expectStatus(201)}
     pm.collectionVariables.set('lockIdem', pm.response.json().id);` }),
-    req('Idempotency: kirim ulang', 'POST', '/api/locks', { auth: 'customerToken', headers: { 'Idempotency-Key': 'postman-{{runId}}-a' }, body: { tripId: '{{tripId}}', from: 'SGU', to: 'MR', seats: ['{{seatB}}'] }, tests: `${expectStatus(201)}
+    req('Idempotency: kirim ulang', 'POST', '/api/locks', { auth: 'customerToken', headers: { 'Idempotency-Key': 'postman-{{runId}}-a' }, body: { tripId: '{{tripId}}', from: 'GMR', to: 'CN', seats: ['{{seatB}}'] }, tests: `${expectStatus(201)}
     pm.test('Lock yang sama', () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('lockIdem')));
     pm.test('Ditandai replay', () => pm.response.to.have.header('Idempotent-Replay'));` }),
-    req('Idempotency: isi berbeda', 'POST', '/api/locks', { auth: 'customerToken', headers: { 'Idempotency-Key': 'postman-{{runId}}-a' }, body: { tripId: '{{tripId}}', from: 'SGU', to: 'JG', seats: ['{{seatB}}'] }, tests: `${expectStatus(409)}
+    req('Idempotency: isi berbeda', 'POST', '/api/locks', { auth: 'customerToken', headers: { 'Idempotency-Key': 'postman-{{runId}}-a' }, body: { tripId: '{{tripId}}', from: 'GMR', to: 'PWT', seats: ['{{seatB}}'] }, tests: `${expectStatus(409)}
     pm.test('IDEMPOTENCY_KEY_REUSED', () => pm.expect(pm.response.json().error.code).to.eql('IDEMPOTENCY_KEY_REUSED'));` }),
     req('Lepas lock idempotency', 'DELETE', '/api/locks/{{lockIdem}}', { auth: 'customerToken', tests: expectStatus(200) }),
-    req('Ruas terbalik', 'POST', '/api/locks', { auth: 'customerToken', headers: idem, body: { tripId: '{{tripId}}', from: 'MN', to: 'SGU', seats: ['{{seatB}}'] }, tests: `${expectStatus(422)}
+    req('Ruas terbalik', 'POST', '/api/locks', { auth: 'customerToken', headers: idem, body: { tripId: '{{tripId}}', from: 'MN', to: 'GMR', seats: ['{{seatB}}'] }, tests: `${expectStatus(422)}
     pm.test('INVALID_SEGMENT', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_SEGMENT'));` }),
-    req('Kursi tidak ada', 'POST', '/api/locks', { auth: 'customerToken', headers: idem, body: { tripId: '{{tripId}}', from: 'SGU', to: 'MR', seats: ['ZZZ1-1A'] }, tests: expectStatus(422) }),
-    req('Lima kursi (BVA)', 'POST', '/api/locks', { auth: 'customerToken', headers: idem, body: { tripId: '{{tripId}}', from: 'SGU', to: 'MR', seats: ['EKS1-1A', 'EKS1-1B', 'EKS1-1C', 'EKS1-1D', 'EKS1-2A'] }, tests: expectStatus(422) }),
-    req('Lock singkat 3 detik untuk uji TTL', 'POST', '/api/locks', { auth: 'customer2Token', headers: idem, body: { tripId: '{{tripId}}', from: 'SLO', to: 'YK', seats: ['{{seatC}}'], ttlSeconds: 3 }, tests: `${expectStatus(201)}
+    req('Kursi tidak ada', 'POST', '/api/locks', { auth: 'customerToken', headers: idem, body: { tripId: '{{tripId}}', from: 'GMR', to: 'CN', seats: ['ZZZ1-1A'] }, tests: expectStatus(422) }),
+    req('Kursi kembar ditolak', 'POST', '/api/locks', { auth: 'customerToken', headers: idem, body: { tripId: '{{tripId}}', from: 'GMR', to: 'CN', seats: ['EKS1-1A', 'EKS1-1A'] }, tests: expectStatus(422) }),
+    req('Delapan kursi sekaligus diterima (tanpa batas jumlah)', 'POST', '/api/locks', { auth: 'customerToken', headers: idem, body: { tripId: '{{tripId}}', from: 'GMR', to: 'CN', seats: ['LUX1-1A', 'LUX1-1D', 'LUX1-2A', 'LUX1-2D', 'LUX1-3A', 'LUX1-3D', 'LUX1-4A', 'LUX1-4D'], ttlSeconds: 3 }, tests: `${expectStatus(201)}
+    pm.test('Delapan kursi ditahan', () => pm.expect(pm.response.json().seats.length).to.eql(8));` }),
+    req('Lock singkat 3 detik untuk uji TTL', 'POST', '/api/locks', { auth: 'customer2Token', headers: idem, body: { tripId: '{{tripId}}', from: 'YK', to: 'SLO', seats: ['{{seatC}}'], ttlSeconds: 3 }, tests: `${expectStatus(201)}
     pm.collectionVariables.set('lockTtl', pm.response.json().id);` }),
     req('Setelah 5 detik lock kedaluwarsa', 'GET', '/api/locks/{{lockTtl}}', { auth: 'customer2Token', prereq: 'setTimeout(() => {}, 5000);', tests: `${expectStatus(200)}
     pm.test('Status EXPIRED', () => pm.expect(pm.response.json().status).to.eql('EXPIRED'));` }),
-    req('Kursi bisa ditahan lagi setelah TTL', 'POST', '/api/locks', { auth: 'customerToken', headers: idem, body: { tripId: '{{tripId}}', from: 'SLO', to: 'YK', seats: ['{{seatC}}'], ttlSeconds: 3 }, tests: expectStatus(201) }),
+    req('Kursi bisa ditahan lagi setelah TTL', 'POST', '/api/locks', { auth: 'customerToken', headers: idem, body: { tripId: '{{tripId}}', from: 'YK', to: 'SLO', seats: ['{{seatC}}'], ttlSeconds: 3 }, tests: expectStatus(201) }),
   ]),
   folder('Pesanan dan pembayaran', '', [
     req('NIK salah format', 'POST', '/api/bookings', { auth: 'customerToken', headers: idem, body: { lockId: '{{lockA}}', passengers: [{ seatId: '{{seatA}}', name: 'Sinta', age: 30, nik: '123' }] }, tests: `${expectStatus(422)}
     pm.test('INVALID_NIK', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_NIK'));` }),
     req('Dewasa tanpa NIK', 'POST', '/api/bookings', { auth: 'customerToken', headers: idem, body: { lockId: '{{lockA}}', passengers: [{ seatId: '{{seatA}}', name: 'Sinta', age: 17 }] }, tests: `${expectStatus(422)}
     pm.test('NIK_REQUIRED', () => pm.expect(pm.response.json().error.code).to.eql('NIK_REQUIRED'));` }),
-    req('Bayi tidak perlu kursi', 'POST', '/api/bookings', { auth: 'customerToken', headers: idem, body: { lockId: '{{lockA}}', passengers: [{ seatId: '{{seatA}}', name: 'Bayi', age: 2 }] }, tests: `${expectStatus(422)}
-    pm.test('INFANT_NO_SEAT', () => pm.expect(pm.response.json().error.code).to.eql('INFANT_NO_SEAT'));` }),
+    req('Usia 121 ditolak (BVA)', 'POST', '/api/bookings', { auth: 'customerToken', headers: idem, body: { lockId: '{{lockA}}', passengers: [{ seatId: '{{seatA}}', name: 'Kakek Uji', age: 121, nik: '3578015203990001' }] }, tests: expectStatus(422) }),
     req('Penumpang tidak cocok dengan kursi', 'POST', '/api/bookings', { auth: 'customerToken', headers: idem, body: { lockId: '{{lockA}}', passengers: [{ seatId: 'EKS1-1A', name: 'Sinta', age: 30, nik: '3578015203990001' }] }, tests: expectStatus(422) }),
     req('Buat pesanan', 'POST', '/api/bookings', { auth: 'customerToken', headers: idem, body: { lockId: '{{lockA}}', passengers: [{ seatId: '{{seatA}}', name: 'Sinta Maharani', age: 30, nik: '3578015203990001', phone: '081234567890' }] }, tests: `${expectStatus(201)}
     const j = pm.response.json();
@@ -436,7 +450,7 @@ const flow = folder('Alur Reservasi per Segmen', 'Inti sistem: satu kursi dipaka
     req('Status pembayaran', 'GET', '/api/payments/{{paymentId}}', { auth: 'customerToken', tests: `${expectStatus(200)}
     pm.test('SUCCEEDED', () => pm.expect(pm.response.json().payment.status).to.eql('SUCCEEDED'));` }),
     req('Checkout tidak bisa dipakai lagi', 'POST', '/api/mock-gateway/checkout/{{checkoutToken}}/pay', { auth: 'customerToken', body: { outcome: 'success' }, tests: expectStatus(409) }),
-    req('Kursi kini BOOKED', 'GET', '/api/trips/{{tripId}}/availability?from=SGU&to=MN', { tests: `${expectStatus(200)}
+    req('Kursi kini BOOKED', 'GET', '/api/trips/{{tripId}}/availability?from=GMR&to=MN', { tests: `${expectStatus(200)}
     pm.test('BOOKED', () => pm.expect(pm.response.json().taken.find((t) => t.seatId === pm.collectionVariables.get('seatA')).status).to.eql('BOOKED'));` }),
     req('Riwayat pesanan saya', 'GET', '/api/bookings', { auth: 'customerToken', tests: expectStatus(200) }),
     req('Notifikasi lewat antrian', 'GET', '/api/notifications', { auth: 'customerToken', prereq: 'setTimeout(() => {}, 1200);', tests: `${expectStatus(200)}
@@ -444,10 +458,10 @@ const flow = folder('Alur Reservasi per Segmen', 'Inti sistem: satu kursi dipaka
   ]),
   folder('Check-in dan manifest', '', [
     req('Pelanggan tidak boleh check-in', 'POST', '/api/tickets/checkin', { auth: 'customerToken', body: { ticketCode: '{{ticketCode}}' }, tests: expectStatus(403) }),
-    req('Manifest untuk operator', 'GET', '/api/trips/{{tripId}}/manifest', { auth: 'operatorToken', tests: `${expectStatus(200)}
+    req('Manifest untuk admin', 'GET', '/api/trips/{{tripId}}/manifest', { auth: 'adminToken', tests: `${expectStatus(200)}
     pm.test('NIK dimasker', () => pm.expect(pm.response.text()).to.not.include('3578015203990001'));` }),
     req('Pelanggan tidak boleh melihat manifest', 'GET', '/api/trips/{{tripId}}/manifest', { auth: 'customerToken', tests: expectStatus(403) }),
-    req('Tiket tidak dikenal', 'POST', '/api/tickets/checkin', { auth: 'operatorToken', body: { ticketCode: 'TKT-TIDAKADA' }, tests: expectStatus(404) }),
+    req('Tiket tidak dikenal', 'POST', '/api/tickets/checkin', { auth: 'masinisToken', body: { ticketCode: 'TKT-TIDAKADA' }, tests: expectStatus(404) }),
   ]),
   folder('Pembatalan dan refund', '', [
     req('Pratinjau refund', 'GET', '/api/bookings/{{bookingId}}/refund-preview', { auth: 'customerToken', tests: `${expectStatus(200)}
@@ -461,13 +475,13 @@ const flow = folder('Alur Reservasi per Segmen', 'Inti sistem: satu kursi dipaka
     pm.test('Nominal sama dengan pratinjau', () => pm.expect(j.refundAmount).to.eql(Number(pm.collectionVariables.get('refundAmount'))));` }),
     req('Batalkan dua kali', 'POST', '/api/bookings/{{bookingId}}/cancel', { auth: 'customerToken', tests: `${expectStatus(409)}
     pm.test('INVALID_STATE_TRANSITION', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_STATE_TRANSITION'));` }),
-    req('Check-in tiket yang dibatalkan', 'POST', '/api/tickets/checkin', { auth: 'operatorToken', body: { ticketCode: '{{ticketCode}}' }, tests: expectStatus(409) }),
+    req('Check-in tiket yang dibatalkan', 'POST', '/api/tickets/checkin', { auth: 'adminToken', body: { ticketCode: '{{ticketCode}}' }, tests: expectStatus(409) }),
     req('Pembayaran menjadi REFUNDED', 'GET', '/api/payments/{{paymentId}}', { auth: 'customerToken', prereq: 'setTimeout(() => {}, 1800);', tests: `${expectStatus(200)}
     pm.test('REFUNDED', () => pm.expect(pm.response.json().payment.status).to.eql('REFUNDED'));` }),
-    req('Kursi kosong lagi, bisa ditahan penumpang lain', 'POST', '/api/locks', { auth: 'customer2Token', headers: idem, body: { tripId: '{{tripId}}', from: 'SGU', to: 'MN', seats: ['{{seatA}}'], ttlSeconds: 3 }, tests: expectStatus(201) }),
-    req('Operator membatalkan perjalanan', 'PATCH', '/api/trips/{{newTripId}}', { auth: 'operatorToken', body: { status: 'CANCELLED' }, tests: `${expectStatus(200)}
+    req('Kursi kosong lagi, bisa ditahan penumpang lain', 'POST', '/api/locks', { auth: 'customer2Token', headers: idem, body: { tripId: '{{tripId}}', from: 'GMR', to: 'MN', seats: ['{{seatA}}'], ttlSeconds: 3 }, tests: expectStatus(201) }),
+    req('Admin membatalkan perjalanan', 'PATCH', '/api/trips/{{newTripId}}', { auth: 'adminToken', body: { status: 'CANCELLED' }, tests: `${expectStatus(200)}
     pm.test('CANCELLED', () => pm.expect(pm.response.json().trip.status).to.eql('CANCELLED'));` }),
-    req('Perjalanan batal tidak bisa dipesan', 'POST', '/api/locks', { auth: 'customerToken', headers: idem, prereq: 'setTimeout(() => {}, 2200);', body: { tripId: '{{newTripId}}', from: 'SGU', to: 'MN', seats: ['EKS1-1A'] }, tests: `${expectStatus(409)}
+    req('Perjalanan batal tidak bisa dipesan', 'POST', '/api/locks', { auth: 'customerToken', headers: idem, prereq: 'setTimeout(() => {}, 2200);', body: { tripId: '{{newTripId}}', from: 'GMR', to: 'MN', seats: ['EKS1-1A'] }, tests: `${expectStatus(409)}
     pm.test('TRIP_CANCELLED', () => pm.expect(pm.response.json().error.code).to.eql('TRIP_CANCELLED'));` }),
   ]),
   folder('Audit', '', [
@@ -481,6 +495,191 @@ const flow = folder('Alur Reservasi per Segmen', 'Inti sistem: satu kursi dipaka
   ]),
 ]);
 
+/* ---------- Fitur revisi: profil, admin, masinis, transfer VA, QRIS, notifikasi, bantuan, partner ---------- */
+// PNG 1x1 piksel sebagai bukti transfer uji. Jenis berkas dicek dari isinya (magic bytes), bukan dari nama.
+const PNG_PROOF = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+const RANDOM_CODES = `
+    const L = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const pick = () => L[Math.floor(Math.random() * 26)];
+    pm.collectionVariables.set('stationCode', 'Q' + pick() + pick() + pick());
+    pm.collectionVariables.set('trainCode', 'Z' + pick() + pick());
+    pm.collectionVariables.set('trainNumber', 'KA ' + (9000 + Math.floor(Math.random() * 999)));`;
+const waitMs = (ms) => `setTimeout(() => {}, ${ms});`;
+
+const revisi = folder('Revisi - Profil, Admin, Masinis, Pembayaran, Bantuan', 'Endpoint yang ditambahkan pada revisi: data KAI, profil, manajemen pengguna dan data operasional oleh admin, jadwal dinas masinis, transfer VA dengan bukti, QRIS, notifikasi, Pusat Bantuan, dan API partner.', [
+  folder('Data publik', '', [
+    req('Daftar kereta aktif', 'GET', '/api/trains', { tests: `${expectStatus(200)}
+    const t = pm.response.json().trains;
+    pm.test('Delapan kereta KAI', () => pm.expect(t.length).to.eql(8));
+    pm.test('Gajayana ada', () => pm.expect(t.map((x) => x.name)).to.include('Gajayana'));` }),
+    req('Kebijakan tarif', 'GET', '/api/pricing', { tests: `${expectStatus(200)}
+    pm.test('Diskon lansia 0 sampai 100', () => pm.expect(pm.response.json().seniorDiscountPercent).to.be.within(0, 100));` }),
+    req('Skema GraphQL (SDL)', 'GET', '/graphql/schema', { tests: `${expectStatus(200)}
+    pm.test('Memuat searchTrips', () => pm.expect(pm.response.text()).to.include('searchTrips'));` }),
+  ]),
+  folder('Profil pengguna', '', [
+    req('Ubah nomor HP sendiri', 'PATCH', '/api/auth/me', { auth: 'customer2Token', body: { phone: '081299990000' }, tests: `${expectStatus(200)}
+    pm.test('Nomor tersimpan', () => pm.expect(pm.response.json().user.phone).to.eql('081299990000'));` }),
+    req('NIK profil salah format', 'PATCH', '/api/auth/me', { auth: 'customer2Token', body: { nik: '123' }, tests: expectStatus(422) }),
+    req('Field asing di profil (mass assignment)', 'PATCH', '/api/auth/me', { auth: 'customer2Token', body: { role: 'admin' }, tests: expectStatus(422) }),
+    req('Ganti sandi: sandi lama salah', 'POST', '/api/auth/me/password', { auth: 'customer2Token', body: { currentPassword: 'BukanSandi123', newPassword: 'SandiBaru12345' }, tests: `${expectStatus(422)}
+    pm.test('Ditunjuk field currentPassword', () => pm.expect(pm.response.json().error.details.fields).to.have.property('currentPassword'));` }),
+  ]),
+  folder('Admin: manajemen pengguna', '', [
+    req('Pelanggan tidak boleh membuat akun', 'POST', '/api/admin/users', { auth: 'customerToken', body: { name: 'Coba', email: 'coba.{{runId}}@rangkai.test', password: 'Masinis12345', role: 'masinis' }, tests: expectStatus(403) }),
+    req('Admin membuat akun masinis', 'POST', '/api/admin/users', { auth: 'adminToken', body: { name: 'Masinis Uji', email: 'masinis.{{runId}}@rangkai.test', password: 'Masinis12345', role: 'masinis' }, tests: `${expectStatus(201)}
+    const u = pm.response.json().user;
+    pm.test('Peran masinis', () => pm.expect(u.role).to.eql('masinis'));
+    pm.test('Hash sandi tidak dikembalikan', () => pm.expect(pm.response.text()).to.not.include('scrypt'));
+    pm.collectionVariables.set('newUserId', u.id);` }),
+    req('Detail pengguna', 'GET', '/api/admin/users/{{newUserId}}', { auth: 'adminToken', tests: expectStatus(200) }),
+    req('Ubah data pengguna', 'PATCH', '/api/admin/users/{{newUserId}}', { auth: 'adminToken', body: { phone: '081300009999' }, tests: expectStatus(200) }),
+    req('Ganti peran menjadi customer', 'PATCH', '/api/admin/users/{{newUserId}}/role', { auth: 'adminToken', body: { role: 'customer' }, tests: `${expectStatus(200)}
+    pm.test('Peran berubah', () => pm.expect(pm.response.json().user.role).to.eql('customer'));` }),
+    req('Peran tidak dikenal ditolak', 'PATCH', '/api/admin/users/{{newUserId}}/role', { auth: 'adminToken', body: { role: 'operator' }, tests: expectStatus(422) }),
+    req('Admin mengganti sandi pengguna', 'POST', '/api/admin/users/{{newUserId}}/password', { auth: 'adminToken', body: { password: 'GantiSandi123' }, tests: expectStatus(200) }),
+    req('Hapus pengguna', 'DELETE', '/api/admin/users/{{newUserId}}', { auth: 'adminToken', tests: expectStatus(200) }),
+  ]),
+  folder('Admin: data operasional', '', [
+    req('Daftar stasiun (admin)', 'GET', '/api/admin/stations', { auth: 'adminToken', prereq: RANDOM_CODES, tests: `${expectStatus(200)}
+    pm.test('33 stasiun atau lebih', () => pm.expect(pm.response.json().stations.length).to.be.at.least(33));` }),
+    req('Tambah stasiun', 'POST', '/api/admin/stations', { auth: 'adminToken', body: { code: '{{stationCode}}', name: 'Stasiun Uji Postman', city: 'Kota Uji' }, tests: expectStatus(201) }),
+    req('Kode stasiun ganda', 'POST', '/api/admin/stations', { auth: 'adminToken', body: { code: '{{stationCode}}', name: 'Stasiun Uji Postman', city: 'Kota Uji' }, tests: `${expectStatus(409)}
+    pm.test('STATION_EXISTS', () => pm.expect(pm.response.json().error.code).to.eql('STATION_EXISTS'));` }),
+    req('Nonaktifkan stasiun', 'PATCH', '/api/admin/stations/{{stationCode}}', { auth: 'adminToken', body: { active: false }, tests: `${expectStatus(200)}
+    pm.test('Nonaktif', () => pm.expect(pm.response.json().station.active).to.eql(false));` }),
+    req('Hapus stasiun yang tidak dipakai', 'DELETE', '/api/admin/stations/{{stationCode}}', { auth: 'adminToken', tests: expectStatus(200) }),
+    req('Stasiun yang dipakai rute tidak bisa dihapus', 'DELETE', '/api/admin/stations/GMR', { auth: 'adminToken', tests: `${expectStatus(409)}
+    pm.test('STATION_IN_USE', () => pm.expect(pm.response.json().error.code).to.eql('STATION_IN_USE'));` }),
+    req('Daftar kereta (admin)', 'GET', '/api/admin/trains', { auth: 'adminToken', tests: expectStatus(200) }),
+    req('Detail kereta Gajayana', 'GET', '/api/admin/trains/GJY', { auth: 'adminToken', tests: `${expectStatus(200)}
+    pm.test('Nama Gajayana', () => pm.expect(pm.response.json().train.name).to.eql('Gajayana'));` }),
+    req('Buat kereta uji', 'POST', '/api/admin/trains', { auth: 'adminToken', body: { id: '{{trainCode}}', number: '{{trainNumber}}', name: 'Kereta Uji Postman', classes: ['EKONOMI'] }, tests: `${expectStatus(201)}
+    pm.test('Dibuat nonaktif', () => pm.expect(pm.response.json().train.enabled).to.eql(false));` }),
+    req('Aktifkan sebelum lengkap ditolak', 'PATCH', '/api/admin/trains/{{trainCode}}', { auth: 'adminToken', body: { enabled: true }, tests: `${expectStatus(409)}
+    pm.test('TRAIN_INCOMPLETE', () => pm.expect(pm.response.json().error.code).to.eql('TRAIN_INCOMPLETE'));` }),
+    req('Atur rute kereta uji', 'PUT', '/api/admin/trains/{{trainCode}}/route', { auth: 'adminToken', body: { stops: [{ code: 'GMR', minuteOffset: 0, km: 0 }, { code: 'BKS', minuteOffset: 30, km: 28 }] }, tests: expectStatus(200) }),
+    req('Rute dengan km mundur ditolak', 'PUT', '/api/admin/trains/{{trainCode}}/route', { auth: 'adminToken', body: { stops: [{ code: 'GMR', minuteOffset: 0, km: 0 }, { code: 'BKS', minuteOffset: 30, km: 0 }] }, tests: expectStatus(422) }),
+    req('Atur tarif kereta uji', 'PUT', '/api/admin/trains/{{trainCode}}/fares', { auth: 'adminToken', body: { fares: [{ seatClass: 'EKONOMI', base: 20000, perKm: 300 }] }, tests: expectStatus(200) }),
+    req('Atur jam operasional', 'PUT', '/api/admin/trains/{{trainCode}}/services', { auth: 'adminToken', body: { services: [{ direction: 'A', departureTime: '23:55' }] }, tests: expectStatus(200) }),
+    req('Aktifkan kereta uji', 'PATCH', '/api/admin/trains/{{trainCode}}', { auth: 'adminToken', body: { enabled: true }, tests: `${expectStatus(200)}
+    pm.test('Aktif', () => pm.expect(pm.response.json().train.enabled).to.eql(true));` }),
+    req('Terapkan ke jadwal mendatang', 'POST', '/api/admin/trains/{{trainCode}}/regenerate', { auth: 'adminToken', body: {}, tests: expectStatus(200) }),
+    req('Riwayat perjalanan kereta', 'GET', '/api/admin/trains/{{trainCode}}/trips', { auth: 'adminToken', tests: expectStatus(200) }),
+    req('Nonaktifkan kereta uji', 'PATCH', '/api/admin/trains/{{trainCode}}', { auth: 'adminToken', body: { enabled: false }, tests: expectStatus(200) }),
+    req('Hapus kereta uji', 'DELETE', '/api/admin/trains/{{trainCode}}', { auth: 'adminToken', tests: expectStatus(200) }),
+    req('Baca diskon lansia', 'GET', '/api/admin/settings', { auth: 'adminToken', tests: `${expectStatus(200)}
+    pm.collectionVariables.set('seniorPct', pm.response.json().seniorDiscountPercent);` }),
+    req('Simpan diskon lansia (nilai sama)', 'PUT', '/api/admin/settings', { auth: 'adminToken', body: '{"seniorDiscountPercent": {{seniorPct}}}', tests: expectStatus(200) }),
+    req('Diskon 101 persen ditolak (BVA)', 'PUT', '/api/admin/settings', { auth: 'adminToken', body: { seniorDiscountPercent: 101 }, tests: expectStatus(422) }),
+    req('Masinis tidak boleh mengubah data', 'PUT', '/api/admin/settings', { auth: 'masinisToken', body: { seniorDiscountPercent: 10 }, tests: expectStatus(403) }),
+    req('Statistik katalog', 'GET', '/api/admin/catalog-stats', { auth: 'adminToken', tests: expectStatus(200) }),
+    req('Penumpang satu perjalanan', 'GET', '/api/admin/trips/{{tripId}}/passengers', { auth: 'adminToken', tests: expectStatus(200) }),
+    req('Statistik beberapa perjalanan', 'POST', '/api/admin/trip-stats', { auth: 'adminToken', body: { tripIds: ['{{tripId}}'] }, tests: expectStatus(200) }),
+  ]),
+  folder('Masinis', '', [
+    req('Jadwal dinas masinis', 'GET', '/api/masinis/trips', { auth: 'masinisToken', tests: `${expectStatus(200)}
+    const t = pm.response.json().trips.filter((x) => new Date(x.departureAt).getTime() > Date.now());
+    pm.test('Ada perjalanan mendatang', () => pm.expect(t.length).to.be.above(0));
+    if (t.length) pm.collectionVariables.set('dutyTripId', t[0].tripId || t[0].id);` }),
+    req('Pelanggan tidak boleh membuka jadwal dinas', 'GET', '/api/masinis/trips', { auth: 'customerToken', tests: expectStatus(403) }),
+    req('Masinis melaporkan terlambat 15 menit', 'PATCH', '/api/masinis/trips/{{dutyTripId}}/delay', { auth: 'masinisToken', body: { delayMinutes: 15 }, tests: `${expectStatus(200)}
+    pm.test('DELAYED', () => pm.expect(pm.response.json().trip.status).to.eql('DELAYED'));` }),
+    req('Keterlambatan 721 menit ditolak (BVA)', 'PATCH', '/api/masinis/trips/{{dutyTripId}}/delay', { auth: 'masinisToken', body: { delayMinutes: 721 }, tests: expectStatus(422) }),
+    req('Kembali tepat waktu', 'PATCH', '/api/masinis/trips/{{dutyTripId}}/delay', { auth: 'masinisToken', body: { delayMinutes: 0 }, tests: `${expectStatus(200)}
+    pm.test('SCHEDULED', () => pm.expect(pm.response.json().trip.status).to.eql('SCHEDULED'));` }),
+    req('Manifest perjalanan dinas sendiri', 'GET', '/api/trips/{{dutyTripId}}/manifest', { auth: 'masinisToken', tests: expectStatus(200) }),
+  ]),
+  folder('Transfer VA dengan bukti', '', [
+    req('Tahan kursi untuk VA', 'POST', '/api/locks', { auth: 'customerToken', headers: idem, body: { tripId: '{{tripId}}', from: 'GMR', to: 'YK', seats: ['{{seatD}}'] }, tests: `${expectStatus(201)}
+    pm.collectionVariables.set('lockVa', pm.response.json().id);` }),
+    req('Pesanan dengan penumpang lansia', 'POST', '/api/bookings', { auth: 'customerToken', headers: idem, body: { lockId: '{{lockVa}}', passengers: [{ seatId: '{{seatD}}', name: 'Bapak Lansia', age: 70, nik: '1234567890123456' }] }, tests: `${expectStatus(201)}
+    const j = pm.response.json();
+    pm.test('Label lansia', () => pm.expect(j.passengers[0].passengerType).to.eql('SENIOR'));
+    pm.collectionVariables.set('bookingVa', j.id);` }),
+    req('Pilih VA BCA', 'POST', '/api/payments', { auth: 'customerToken', headers: idem, body: { bookingId: '{{bookingVa}}', method: 'VA_BCA' }, tests: `${expectStatus(201)}
+    const p = pm.response.json().payment;
+    pm.test('Menunggu transfer', () => pm.expect(p.status).to.eql('AWAITING_TRANSFER'));
+    pm.test('Ada nomor VA', () => pm.expect(p.vaNumber).to.be.a('string'));
+    pm.collectionVariables.set('paymentVa', p.id);` }),
+    req('Daftar pembayaran pesanan', 'GET', '/api/payments?bookingId={{bookingVa}}', { auth: 'customerToken', tests: `${expectStatus(200)}
+    pm.test('Satu pembayaran', () => pm.expect(pm.response.json().payments.length).to.eql(1));` }),
+    req('Bukti bukan gambar ditolak', 'POST', '/api/payments/{{paymentVa}}/proof', { auth: 'customerToken', body: { fileName: 'bukti.txt', dataBase64: 'aGFsbw==' }, tests: expectStatus(422) }),
+    req('Unggah bukti transfer', 'POST', '/api/payments/{{paymentVa}}/proof', { auth: 'customerToken', body: { fileName: 'bukti.png', dataBase64: PNG_PROOF, note: 'Transfer dari BCA' }, tests: `${expectStatus(201)}
+    pm.test('Menunggu verifikasi', () => pm.expect(pm.response.json().payment.status).to.eql('UNDER_REVIEW'));` }),
+    req('Pelanggan tidak boleh membuka verifikasi', 'GET', '/api/admin/transfers', { auth: 'customerToken', tests: expectStatus(403) }),
+    req('Admin melihat bukti masuk', 'GET', '/api/admin/transfers?status=SUBMITTED', { auth: 'adminToken', tests: `${expectStatus(200)}
+    const t = pm.response.json().transfers.find((x) => x.payment.id === pm.collectionVariables.get('paymentVa'));
+    pm.test('Bukti pesanan ini ada', () => pm.expect(t).to.be.an('object'));
+    pm.test('Data pemesan untuk verifikasi', () => pm.expect(t.user.email).to.be.a('string'));
+    pm.collectionVariables.set('proofId', t.proof.id);` }),
+    req('Pemilik bisa membuka berkas bukti', 'GET', '/api/payments/proofs/{{proofId}}/file', { auth: 'customerToken', tests: `${expectStatus(200)}
+    pm.test('Berupa gambar PNG', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('image/png'));` }),
+    req('Pengguna lain tidak bisa membuka bukti', 'GET', '/api/payments/proofs/{{proofId}}/file', { auth: 'customer2Token', tests: expectStatus(404) }),
+    req('Alasan tolak terlalu pendek', 'POST', '/api/admin/transfers/{{proofId}}/decision', { auth: 'adminToken', body: { decision: 'REJECT', reason: 'abc' }, tests: expectStatus(422) }),
+    req('Admin menolak bukti', 'POST', '/api/admin/transfers/{{proofId}}/decision', { auth: 'adminToken', body: { decision: 'REJECT', reason: 'Nominal di bukti tidak terbaca' }, tests: expectStatus(200) }),
+    req('Notifikasi penolakan sampai ke pelanggan', 'GET', '/api/notifications', { auth: 'customerToken', prereq: waitMs(1500), tests: `${expectStatus(200)}
+    pm.test('Ada notifikasi pembayaran ditolak', () => pm.expect(pm.response.json().notifications.map((n) => n.title)).to.include('Pembayaran ditolak'));` }),
+    req('Unggah ulang bukti', 'POST', '/api/payments/{{paymentVa}}/proof', { auth: 'customerToken', body: { fileName: 'bukti2.png', dataBase64: PNG_PROOF, note: 'Bukti lebih jelas' }, tests: expectStatus(201) }),
+    req('Ambil bukti baru', 'GET', '/api/admin/transfers?status=SUBMITTED', { auth: 'adminToken', tests: `${expectStatus(200)}
+    pm.collectionVariables.set('proofId', pm.response.json().transfers.find((x) => x.payment.id === pm.collectionVariables.get('paymentVa')).proof.id);` }),
+    req('Admin menerima bukti', 'POST', '/api/admin/transfers/{{proofId}}/decision', { auth: 'adminToken', body: { decision: 'ACCEPT' }, tests: expectStatus(200) }),
+    req('Pesanan VA terkonfirmasi', 'GET', '/api/bookings/{{bookingVa}}', { auth: 'customerToken', prereq: waitMs(2000), tests: `${expectStatus(200)}
+    pm.test('CONFIRMED', () => pm.expect(pm.response.json().status).to.eql('CONFIRMED'));
+    pm.test('Tiket terbit', () => pm.expect(pm.response.json().passengers[0].ticketCode).to.match(/^TKT-/));` }),
+  ]),
+  folder('QRIS dari ponsel', '', [
+    req('Tahan kursi untuk QRIS', 'POST', '/api/locks', { auth: 'customer2Token', headers: idem, body: { tripId: '{{tripId}}', from: 'GMR', to: 'YK', seats: ['{{seatE}}'] }, tests: `${expectStatus(201)}
+    pm.collectionVariables.set('lockQr', pm.response.json().id);` }),
+    req('Pesanan untuk QRIS', 'POST', '/api/bookings', { auth: 'customer2Token', headers: idem, body: { lockId: '{{lockQr}}', passengers: [{ seatId: '{{seatE}}', name: 'Bima Pelanggan', age: 25, nik: '3578015203990002' }] }, tests: `${expectStatus(201)}
+    pm.collectionVariables.set('bookingQr', pm.response.json().id);` }),
+    req('Buat QRIS', 'POST', '/api/payments', { auth: 'customer2Token', headers: idem, body: { bookingId: '{{bookingQr}}', method: 'QRIS' }, tests: `${expectStatus(201)}
+    const j = pm.response.json();
+    pm.test('Tautan QRIS untuk dipindai', () => pm.expect(j.instructions.qrisUrl).to.include('/qris/'));
+    pm.collectionVariables.set('qrisToken', j.checkoutToken);
+    pm.collectionVariables.set('paymentQr', j.payment.id);` }),
+    req('Halaman QRIS dibuka dari ponsel', 'GET', '/api/qris/{{qrisToken}}', { tests: `${expectStatus(200)}
+    pm.test('Masih menunggu', () => pm.expect(pm.response.json().status).to.eql('PENDING'));
+    pm.test('Tanpa data pribadi penumpang', () => pm.expect(pm.response.text()).to.not.include('3578015203990002'));` }),
+    req('Ponsel membayar QRIS', 'POST', '/api/qris/{{qrisToken}}/pay', { body: {}, tests: `${expectStatus(202)}
+    pm.test('Diterima', () => pm.expect(pm.response.json().accepted).to.eql(true));` }),
+    req('Pembayaran QRIS berhasil', 'GET', '/api/payments/{{paymentQr}}', { auth: 'customer2Token', prereq: waitMs(2000), tests: `${expectStatus(200)}
+    pm.test('SUCCEEDED', () => pm.expect(pm.response.json().payment.status).to.eql('SUCCEEDED'));` }),
+    req('QR dipindai ulang tidak membayar dua kali', 'POST', '/api/qris/{{qrisToken}}/pay', { body: {}, tests: `${expectStatus(200)}
+    pm.test('Tidak diterima lagi', () => pm.expect(pm.response.json().accepted).to.eql(false));` }),
+    req('Token QRIS palsu', 'GET', '/api/qris/token-palsu-sekali', { tests: expectStatus(404) }),
+  ]),
+  folder('Notifikasi', '', [
+    req('Jumlah belum dibaca', 'GET', '/api/notifications/unread-count', { auth: 'customerToken', tests: `${expectStatus(200)}
+    pm.test('Angka', () => pm.expect(pm.response.json().unread).to.be.a('number'));` }),
+    req('Ambil notifikasi', 'GET', '/api/notifications', { auth: 'customerToken', tests: `${expectStatus(200)}
+    const n = pm.response.json().notifications;
+    pm.test('Ada notifikasi', () => pm.expect(n.length).to.be.above(0));
+    pm.test('Setiap notifikasi punya tautan', () => pm.expect(n[0]).to.have.property('link'));
+    pm.collectionVariables.set('notifId', n[0].id);` }),
+    req('Tandai satu dibaca', 'POST', '/api/notifications/{{notifId}}/read', { auth: 'customerToken', body: {}, tests: expectStatus(200) }),
+    req('Notifikasi orang lain tidak bisa ditandai', 'POST', '/api/notifications/{{notifId}}/read', { auth: 'customer2Token', body: {}, tests: expectStatus(404) }),
+    req('Tandai semua dibaca', 'POST', '/api/notifications/read-all', { auth: 'customerToken', body: {}, tests: expectStatus(200) }),
+    req('Belum dibaca menjadi 0', 'GET', '/api/notifications/unread-count', { auth: 'customerToken', tests: `${expectStatus(200)}
+    pm.test('Nol', () => pm.expect(pm.response.json().unread).to.eql(0));` }),
+  ]),
+  folder('Pusat Bantuan', '', [
+    req('FAQ', 'GET', '/api/support/faq', { tests: `${expectStatus(200)}
+    pm.test('Ada kategori dan pertanyaan', () => pm.expect(pm.response.json().categories[0].items.length).to.be.above(0));` }),
+    req('Tanya Kiko (AI atau FAQ)', 'POST', '/api/support/chat', { body: { messages: [{ role: 'user', content: 'Bagaimana cara membatalkan tiket dan berapa refundnya?' }] }, tests: `${expectStatus(200)}
+    pm.test('Ada jawaban', () => pm.expect(pm.response.json().reply).to.be.a('string').and.not.empty);`, desc: 'Memakai Gemini bila GEMINI_API_KEY diisi. Tanpa key, atau bila Gemini gagal, jawaban diambil dari FAQ.' }),
+    req('Pesan terakhir harus dari pengguna', 'POST', '/api/support/chat', { body: { messages: [{ role: 'assistant', content: 'Halo' }] }, tests: expectStatus(422) }),
+  ]),
+  folder('API partner dan logout', '', [
+    req('Partner mencari jadwal', 'GET', '/api/partner/v1/schedules?from=GMR&to=YK&date={{tripDate}}', { auth: 'partnerToken', tests: expectStatus(200) }),
+    req('Partner melihat ketersediaan', 'GET', '/api/partner/v1/trips/{{tripId}}/availability?from=GMR&to=YK', { auth: 'partnerToken', tests: expectStatus(200) }),
+    req('Logout: cabut refresh token', 'POST', '/oauth/revoke', { form: { token: '{{custTokenRefresh}}', client_id: 'rangkai-postman' }, prereq: "pm.collectionVariables.set('custTokenRefresh', pm.collectionVariables.get('customerTokenRefresh'));", tests: `${expectStatus(200)}
+    pm.test('revoked', () => pm.expect(pm.response.json().revoked).to.eql(true));` }),
+    req('Refresh token yang dicabut tidak bisa dipakai', 'POST', '/oauth/token', { form: { grant_type: 'refresh_token', client_id: 'rangkai-postman', refresh_token: '{{custTokenRefresh}}' }, tests: expectStatus(400) }),
+  ]),
+]);
+
+
 const collection = {
   info: {
     _postman_id: crypto.createHash('md5').update('rangkai-collection').digest('hex').replace(/^(.{8})(.{4})(.{4})(.{4})(.{12}).*$/, '$1-$2-$3-$4-$5'),
@@ -491,7 +690,7 @@ const collection = {
   variable: [
     { key: 'tripDate', value: '' }, { key: 'tripId', value: '' }, { key: 'runId', value: '' },
   ],
-  item: [setup, week8, week9, week10, week11, graphqlFolder, flow],
+  item: [setup, week8, week9, week10, week11, graphqlFolder, flow, revisi],
 };
 
 const count = (items) => items.reduce((n, i) => n + (i.item ? count(i.item) : 1), 0);
@@ -503,7 +702,7 @@ const template = {
   id: crypto.randomUUID(), name: 'Rangkai (template, isi secret dari .env)', _postman_variable_scope: 'environment',
   values: [
     ['baseUrl', 'http://localhost:8080'], ['seedPassword', '<SEED_USER_PASSWORD dari .env>'], ['partnerClientSecret', '<PARTNER_DEMO_CLIENT_SECRET dari .env>'], ['webhookSecret', '<WEBHOOK_SECRET dari .env>'],
-    ['customerEmail', 'customer@rangkai.test'], ['customer2Email', 'customer2@rangkai.test'], ['operatorEmail', 'operator@rangkai.test'], ['adminEmail', 'admin@rangkai.test'],
+    ['masinisEmail', 'masinis@rangkai.test'], ['adminEmail', 'admin@rangkai.test'],
   ].map(([key, value]) => ({ key, value, enabled: true, type: /secret|password/i.test(key) ? 'secret' : 'default' })),
 };
 fs.writeFileSync(path.resolve(__dirname, '..', 'postman', 'Rangkai.template.postman_environment.json'), JSON.stringify(template, null, 2));

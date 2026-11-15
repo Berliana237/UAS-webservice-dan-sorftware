@@ -142,3 +142,31 @@ body[data-page=auth] #dock,body[data-page=home] #dock{display:none}
 #dock .kk-say{left:auto;right:4px;transform:translate(0,8px) scale(.82);transform-origin:90% 100%;max-width:min(260px,70vw)}
 #dock .kk-say.show{transform:translate(0,0) scale(1)}
 #dock .kk-say::after{left:auto;right:34px;margin:0}
+
+/* Pistol mainan: lengan membidik muncul, lengan kanan biasa disembunyikan */
+.kk-aim{opacity:0;transform:translate(14px,26px) scale(.7);transform-origin:140px 230px;transform-box:view-box;transition:opacity .2s,transform .45s var(--spring);pointer-events:none}
+.kiko[data-pose=aim] .kk-aim{opacity:1;transform:none}
+.kiko[data-pose=aim] .kk-arm.r{opacity:0}
+.kiko[data-pose=aim] .kk-all{animation:none}
+.kiko[data-pose=aim] .kk-head{transform:rotate(-4deg) translateY(3px)}
+.kk-gun{transform-box:view-box;transform-origin:124px 207px}
+.kk-flash{opacity:0;transform-box:view-box;transform-origin:124px 207px}
+.kk-smoke{opacity:0}
+.kiko.firing .kk-gun{animation:kkRecoil .38s var(--ease)}
+.kiko.firing .kk-flash{animation:kkFlash .22s ease-out}
+.kiko.firing .kk-all{animation:kkKick .3s ease-out}
+.kiko.aiming:not(.firing) .kk-smoke{animation:kkSmoke 2.4s ease-out .9s infinite}
+@keyframes kkRecoil{0%{transform:scale(1)}18%{transform:translateY(-9px) rotate(-10deg) scale(1.06)}100%{transform:none}}
+@keyframes kkFlash{0%{opacity:1;transform:scale(.4)}60%{opacity:1;transform:scale(1.25)}100%{opacity:0;transform:scale(1.5)}}
+@keyframes kkKick{30%{transform:translateY(-4px) rotate(-2deg)}}
+@keyframes kkSmoke{0%{opacity:0;transform:translateY(6px)}25%{opacity:.75}100%{opacity:0;transform:translateY(-26px) scale(1.4)}}
+
+/* Layar padam setelah ditembak */
+#kk-black{position:fixed;inset:0;z-index:300;display:grid;place-items:center;background:#000;animation:kkBlackIn .09s steps(1) both;pointer-events:none}
+#kk-black span{font:italic 500 clamp(2.6rem,9vw,6rem) var(--f-display);color:#7c2a27;letter-spacing:.06em;opacity:0;animation:kkDor .7s var(--ease) .12s both}
+#kk-black.out{opacity:0;transition:opacity .65s ease}
+@keyframes kkBlackIn{0%{background:#fff8e6}100%{background:#000}}
+@keyframes kkDor{from{opacity:0;transform:scale(1.4)}to{opacity:.9;transform:none}}
+body.kk-hit #main,body.kk-hit #top{animation:kkHitShake .32s ease-out}
+@keyframes kkHitShake{20%{transform:translate(-6px,3px)}40%{transform:translate(5px,-2px)}60%{transform:translate(-3px,1px)}80%{transform:translate(2px,0)}}
+@media (prefers-reduced-motion:reduce){.kk-aim{transition:none}.kiko.firing .kk-flash{animation:none;opacity:1}}

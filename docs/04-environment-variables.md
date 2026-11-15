@@ -21,15 +21,25 @@
 | `PUBLIC_URL` | `http://localhost:8080` | URL publik, dipakai redirect OAuth2 |
 | `CORS_ORIGINS` | `http://localhost:8080,https://localhost:8443` | Origin yang diizinkan, dipisah koma |
 | `PORT_OFFSET` | `0` | Menggeser semua port |
-| `PORT` | | Port gateway dari platform seperti Render |
+| `PORT` | | Port gateway dari platform (Railway mengisinya otomatis) |
 | `DATA_DIR` | `data` | Folder database |
 | `CERT_DIR` | `certs` | Folder sertifikat mTLS |
 | `TRUST_PROXY` | `0` | `1` bila di belakang proxy platform |
-| `GATEWAY_HOST` | `127.0.0.1` | Alamat gateway, `0.0.0.0` di container |
+| `NODE_ENV` | `development` | Mode Node.js |
+| `GATEWAY_HOST` | `0.0.0.0` di `.env.example` (`127.0.0.1` bila kosong) | Alamat gateway. `0.0.0.0` agar ponsel di Wi-Fi yang sama bisa membuka tautan QRIS |
+| `QR_PUBLIC_BASE` | `auto` | Basis tautan di dalam kode QRIS. `auto` memakai alamat Wi-Fi laptop bila `GATEWAY_HOST=0.0.0.0`, atau isi URL publik deployment |
 | `BIND_HOST` | `127.0.0.1` | Alamat service internal, `0.0.0.0` di Docker Compose |
 | `BOOKING_INSTANCES` | `2` | Jumlah instance booking |
 | `MOCK_GATEWAY` | `1` | `0` mematikan gateway pembayaran simulasi |
 | `LOAD_USERS` | `0` | Jumlah akun `loadN@rangkai.test` untuk load test |
+| `HISTORY_DAYS` | `60` | Banyaknya hari riwayat perjalanan masa lalu yang dibuat saat seed (untuk halaman Armada & Riwayat) |
+
+## Pusat Bantuan (opsional)
+
+| Variabel | Contoh | Keterangan |
+|---|---|---|
+| `GEMINI_API_KEY` | `<gemini-api-key>` | Kunci Gemini milik penguji sendiri. Kosong berarti chat menjawab dari FAQ |
+| `GEMINI_MODEL` | `gemini-3.5-flash` | Model utama. Bila gagal, dicoba `gemini-3.5-flash-lite`, lalu FAQ |
 
 ## Kebijakan
 
@@ -53,7 +63,8 @@
 | `RATE_PAYMENT_PER_MIN` | `30` | Per pengguna |
 | `RATE_GRAPHQL_PER_MIN` | `600` | Per pengguna atau IP |
 | `RATE_PUBLIC_READ_PER_MIN` | `600` | Per pengguna atau IP |
+| `RATE_SUPPORT_PER_MIN` | `12` | Chat Pusat Bantuan, per IP |
 
 ## Untuk Docker Compose
 
-`REGISTRY_HOST`, `BROKER_HOST`, `AUTH_HOST`, `CATALOG_HOST`, `PAYMENT_HOST`, `NOTIFICATION_HOST`, `BOOKING_HOST`, `BOOKING_PORT`, `INSTANCE_ID`. Sudah diisi di `docker-compose.yml`.
+`REGISTRY_HOST`, `BROKER_HOST`, `AUTH_HOST`, `CATALOG_HOST`, `PAYMENT_HOST`, `NOTIFICATION_HOST`, `SUPPORT_HOST`, `BOOKING_HOST`, `BOOKING_PORT`, `INSTANCE_ID`. Sudah diisi di `docker-compose.yml`.

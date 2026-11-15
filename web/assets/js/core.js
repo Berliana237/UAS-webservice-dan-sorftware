@@ -20,6 +20,67 @@ export const dateShort = (v) => fmt({ weekday: 'short', day: 'numeric', month: '
 export const duration = (min) => `${Math.floor(min / 60)}j ${String(min % 60).padStart(2, '0')}m`;
 export const wibToday = (plus = 0) => new Date(Date.now() + 7 * 3600000 + plus * 86400000).toISOString().slice(0, 10);
 export const uuid = () => crypto.randomUUID();
+export const dateTime = (v) => fmt({ day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(v));
+export const dayName = (v) => fmt({ weekday: 'long' }).format(new Date(v));
+export const dateNum = (v) => fmt({ day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(v));
+export const ago = (v) => {
+  const s = Math.round((Date.now() - Number(v)) / 1000);
+  if (s < 60) return 'baru saja';
+  if (s < 3600) return `${Math.floor(s / 60)} menit lalu`;
+  if (s < 86400) return `${Math.floor(s / 3600)} jam lalu`;
+  return dateNum(v);
+};
+export const debounce = (fn, ms = 250) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+export const initials = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+
+/** Usia dalam tahun penuh dari tanggal lahir YYYY-MM-DD (zona WIB). */
+export function ageFrom(birthDate) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate || '')) return null;
+  const [y, m, d] = birthDate.split('-').map(Number);
+  const [ty, tm, td] = wibToday().split('-').map(Number);
+  return ty - y - (tm < m || (tm === m && td < d) ? 1 : 0);
+}
+
+/** Golongan penumpang. Bayi, anak, dan dewasa bertarif normal; lansia mendapat potongan. */
+export function paxType(age, seniorPercent = 10) {
+  if (age === null || age === undefined || age === '' || Number.isNaN(Number(age))) return null;
+  const a = Number(age);
+  if (a <= 3) return { code: 'INFANT', label: 'Bayi', note: 'tarif normal, kursi sendiri' };
+  if (a <= 16) return { code: 'CHILD', label: 'Anak', note: 'tarif normal' };
+  if (a <= 59) return { code: 'ADULT', label: 'Dewasa', note: 'tarif normal' };
+  return { code: 'SENIOR', label: 'Lansia', note: `potongan ${seniorPercent}%`, discount: seniorPercent };
+}
+/** Sama persis dengan FareCalculator di booking-service: potong persen (dibulatkan ke bawah), lalu naik ke Rp1.000 terdekat. */
+export const seniorFare = (adult, pct) => Math.ceil(Math.floor((adult * (100 - pct)) / 100) / 1000) * 1000;
+
+/** Halaman awal tiap peran setelah masuk. */
+export const roleHome = (role) => (role === 'admin' ? '/admin' : role === 'masinis' ? '/masinis' : '/');
+
+export const fileToBase64 = (file) => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(String(r.result));
+  r.onerror = () => reject(new Error('Berkas tidak bisa dibaca.'));
+  r.readAsDataURL(file);
+});
+
+/** Menampilkan pesan per kolom dari respons 422 { details: { fields } } pada .f[data-name]. */
+export function showFieldErrors(root, err) {
+  const fields = err?.details?.fields || {};
+  Object.entries(fields).forEach(([k, m]) => {
+    const box = root.querySelector(`[data-name="${k}"]`);
+    if (box) { box.classList.add('bad'); const h = box.querySelector('.hint'); if (h) h.textContent = m; }
+  });
+  return Object.keys(fields).length > 0;
+}
+export const clearFieldErrors = (root) => root.querySelectorAll('.f.bad').forEach((b) => { b.classList.remove('bad'); const h = b.querySelector('.hint'); if (h) h.textContent = ''; });
+
+/** Unduh berkas terlindungi (bukti transfer) memakai token, lalu tampilkan sebagai object URL. */
+export async function protectedBlobUrl(path) {
+  if (session.token && session.exp - Date.now() < 15000) await refresh();
+  const r = await fetch(path, { headers: session.token ? { authorization: `Bearer ${session.token}` } : {}, credentials: 'same-origin' });
+  if (!r.ok) throw new ApiError(r.status, 'FILE_ERROR', 'Berkas tidak bisa dibuka.');
+  return { url: URL.createObjectURL(await r.blob()), type: r.headers.get('content-type') || '' };
+}
 
 export function toast(message, kind = 'info') {
   const box = $('#toasts');
@@ -60,7 +121,7 @@ function setToken(token) {
   if (token) {
     const c = decode(token);
     session.exp = c.exp * 1000;
-    session.user = { id: c.sub, name: c.name, role: c.role, scope: String(c.scope || '').split(' ') };
+    session.user = { id: c.sub, name: c.name, email: c.email, role: c.role, scope: String(c.scope || '').split(' ') };
   } else {
     session.exp = 0;
     session.user = null;
@@ -201,7 +262,7 @@ export async function render() {
   if (r.opts.auth) {
     await restoreSession();
     if (!session.user) return go(`/masuk?next=${encodeURIComponent(url.pathname + url.search)}`, { replace: true });
-    if (r.opts.scope && !hasScope(r.opts.scope)) { toast('Halaman ini tidak tersedia untuk akun Anda.', 'warn'); return go('/', { replace: true }); }
+    if (r.opts.scope && !hasScope(r.opts.scope)) { toast('Halaman ini tidak tersedia untuk akun Anda.', 'warn'); return go(roleHome(session.user.role), { replace: true }); }
   }
   const page = await r.loader();
   if (id !== renderCount) return undefined;

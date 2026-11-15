@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Rangkai API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     REST API reservasi kereta antarkota dengan seat locking per segmen. Semua klien masuk lewat API Gateway.
 
@@ -10,12 +10,22 @@ info:
     - Antar service dan partner: OAuth2 Client Credentials.
     - Partner: API key lewat header `X-API-Key`.
 
+    **Peran.** `customer` (memesan), `masinis` (jadwal dinas, manifest, check-in, lapor terlambat), `admin` (data operasional, pengguna, verifikasi transfer, sistem).
+
     **Idempotency.** `POST /api/locks`, `POST /api/bookings`, dan `POST /api/payments` wajib membawa header `Idempotency-Key`.
 
     **Format error** seragam: `{ "error": { "code", "message", "details" }, "requestId" }`.
 
+    **Mencoba di halaman ini.** Klik **Authorize**, centang scope yang dibutuhkan, pilih `authorizationCode`, isi `client_id` = `rangkai-postman` (tanpa secret, PKCE aktif), lalu masuk dengan akun demo. Endpoint publik bisa langsung dicoba lewat **Try it out**.
+
+    Dibangun oleh Kelompok A (Web Service x Software Testing).
+
     Protokol non-REST (GraphQL) didokumentasikan di `docs/schema.graphql` dan `docs/graphql-examples.md`.
 servers:
+  - url: /
+    description: Server yang sedang membuka dokumen ini
+  - url: https://rangkai-production.up.railway.app
+    description: Deployment Railway (code freeze minggu 12)
   - url: http://localhost:8080
     description: Lokal lewat run.bat
   - url: https://localhost:8443
@@ -27,7 +37,10 @@ tags:
   - { name: Pesanan, description: Siklus hidup pesanan }
   - { name: Pembayaran, description: Pembayaran lewat webhook bertanda tangan }
   - { name: Notifikasi, description: Notifikasi pengguna }
-  - { name: Operator, description: Check-in dan manifest }
+  - { name: Masinis, description: Jadwal dinas, manifest, check-in, laporan keterlambatan }
+  - { name: Profil, description: Data diri pengguna }
+  - { name: Bantuan, description: FAQ dan chat AI Pusat Bantuan }
+  - { name: Data Operasional, description: Stasiun, kereta, rute, tarif, jam operasional, diskon lansia (admin) }
   - { name: Partner, description: Akses partner dengan API key }
   - { name: Admin, description: API key, pengguna, audit, sistem }
 security: []
@@ -135,18 +148,53 @@ paths:
     get:
       tags: [OAuth2]
       summary: Profil dari access token
-      security: [{ bearer: [] }]
+      security: [{ bearer: [] }, { bearerToken: [] }]
       responses:
         '200': { description: Profil }
         '401': { $ref: '#/components/responses/Error' }
   /api/auth/me:
     get:
-      tags: [OAuth2]
+      tags: [Profil]
       summary: Profil pengguna saat ini
-      security: [{ bearer: [] }]
+      security: [{ bearer: [] }, { bearerToken: [] }]
       responses:
         '200': { description: Profil }
         '401': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [Profil]
+      summary: Mengubah profil sendiri (sebagian)
+      description: Field yang tidak dikirim tetap memakai nilai lama. Kirim string kosong atau null untuk mengosongkan. Data profil dipakai untuk mengisi otomatis penumpang pertama.
+      security: [{ bearer: [] }, { bearerToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: { type: string, maxLength: 80 }
+                phone: { type: string, nullable: true, example: '081234567890' }
+                nik: { type: string, nullable: true, description: 16 digit angka }
+                birthDate: { type: string, format: date, nullable: true }
+      responses:
+        '200': { description: Profil terbaru }
+        '422': { $ref: '#/components/responses/Error' }
+  /api/auth/me/password:
+    post:
+      tags: [Profil]
+      summary: Mengganti kata sandi sendiri
+      description: Sesi di perangkat lain dikeluarkan setelah berhasil.
+      security: [{ bearer: [] }, { bearerToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [currentPassword, newPassword], properties: { currentPassword: { type: string }, newPassword: { type: string, minLength: 8, maxLength: 72 } } }
+      responses:
+        '200': { description: Diganti }
+        '422': { description: Sandi lama salah atau sandi baru lemah, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /api/stations:
     get:
       tags: [Jadwal]
@@ -158,26 +206,28 @@ paths:
       tags: [Jadwal]
       summary: Mencari perjalanan
       parameters:
-        - { name: from, in: query, required: true, schema: { type: string, example: SGU } }
+        - { name: from, in: query, required: true, schema: { type: string, example: GMR } }
         - { name: to, in: query, required: true, schema: { type: string, example: MN } }
         - { name: date, in: query, required: true, schema: { type: string, format: date } }
+        - { name: train, in: query, required: false, description: Kode kereta, misalnya GJY, untuk memfilter nama kereta, schema: { type: string, example: GJY } }
       responses:
-        '200': { description: Daftar perjalanan beserta tarif dan kursi kosong pada ruas itu }
+        '200': { description: Daftar perjalanan beserta tarif dan kursi kosong pada ruas itu. Kereta nonaktif dan perjalanan yang sudah berangkat tidak tampil. }
         '422': { $ref: '#/components/responses/Error' }
   /api/trips:
     post:
-      tags: [Operator]
-      summary: Membuat perjalanan
-      security: [{ bearer: [schedule:write] }]
+      tags: [Masinis]
+      summary: Membuat perjalanan tambahan (admin)
+      security: [{ bearer: [schedule:write] }, { bearerToken: [] }]
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [lineCode, serviceDate, departureTime]
+              required: [trainId, serviceDate, departureTime]
               properties:
-                lineCode: { type: string, enum: [ARN, SND, SWM, NWS, BSK] }
+                trainId: { type: string, example: GJY }
+                direction: { type: string, enum: [A, B], default: A }
                 serviceDate: { type: string, format: date }
                 departureTime: { type: string, example: '09:30' }
       responses:
@@ -194,10 +244,10 @@ paths:
         '200': { description: Detail, termasuk daftar segmen }
         '404': { $ref: '#/components/responses/Error' }
     patch:
-      tags: [Operator]
+      tags: [Masinis]
       summary: Mengubah status perjalanan
       description: CANCELLED menerbitkan event `trip.cancelled`, semua pesanan batal dan dana kembali penuh.
-      security: [{ bearer: [schedule:write] }]
+      security: [{ bearer: [schedule:write] }, { bearerToken: [] }]
       requestBody:
         required: true
         content:
@@ -245,9 +295,9 @@ paths:
   /api/trips/{id}/manifest:
     parameters: [{ $ref: '#/components/parameters/TripId' }]
     get:
-      tags: [Operator]
+      tags: [Masinis]
       summary: Daftar penumpang (NIK dimasker)
-      security: [{ bearer: [manifest:read] }]
+      security: [{ bearer: [manifest:read] }, { bearerToken: [] }]
       responses:
         '200': { description: Manifest }
         '403': { $ref: '#/components/responses/Error' }
@@ -258,7 +308,7 @@ paths:
       description: |
         Klaim per segmen bersifat atomik: semua kursi dan semua segmen berhasil, atau tidak sama sekali.
         Dua lock pada kursi yang sama hanya berkonflik bila ruasnya tumpang tindih. Kursi dilepas otomatis setelah TTL.
-      security: [{ bearer: [booking:write] }]
+      security: [{ bearer: [booking:write] }, { bearerToken: [] }]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
         required: true
@@ -279,14 +329,14 @@ paths:
     get:
       tags: [Kursi]
       summary: Status penahanan milik sendiri
-      security: [{ bearer: [booking:read] }]
+      security: [{ bearer: [booking:read] }, { bearerToken: [] }]
       responses:
         '200': { description: Lock, content: { application/json: { schema: { $ref: '#/components/schemas/Lock' } } } }
         '404': { $ref: '#/components/responses/Error' }
     delete:
       tags: [Kursi]
       summary: Melepas kursi
-      security: [{ bearer: [booking:write] }]
+      security: [{ bearer: [booking:write] }, { bearerToken: [] }]
       responses:
         '200': { description: Dilepas }
         '404': { $ref: '#/components/responses/Error' }
@@ -295,14 +345,14 @@ paths:
     get:
       tags: [Pesanan]
       summary: Pesanan milik sendiri
-      security: [{ bearer: [booking:read] }]
+      security: [{ bearer: [booking:read] }, { bearerToken: [] }]
       responses:
         '200': { description: Daftar pesanan }
     post:
       tags: [Pesanan]
       summary: Membuat pesanan dari lock aktif
       description: Harga dihitung di server menurut kelas, jarak ruas, dan usia. NIK wajib untuk usia 17 ke atas.
-      security: [{ bearer: [booking:write] }]
+      security: [{ bearer: [booking:write] }, { bearerToken: [] }]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
         required: true
@@ -314,7 +364,7 @@ paths:
         '400': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
-        '422': { description: 'INVALID_NIK, NIK_REQUIRED, INFANT_NO_SEAT, PASSENGER_SEAT_MISMATCH, DUPLICATE_PASSENGER', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: 'INVALID_NIK, NIK_REQUIRED, INVALID_AGE, PASSENGER_SEAT_MISMATCH, DUPLICATE_PASSENGER', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/bookings/instance:
     get:
       tags: [Pesanan]
@@ -327,7 +377,7 @@ paths:
       tags: [Pesanan]
       summary: Detail pesanan milik sendiri
       description: Pesanan milik orang lain dijawab 404 agar keberadaannya tidak bocor.
-      security: [{ bearer: [booking:read] }]
+      security: [{ bearer: [booking:read] }, { bearerToken: [] }]
       responses:
         '200': { description: Pesanan, content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
         '404': { $ref: '#/components/responses/Error' }
@@ -336,7 +386,7 @@ paths:
     get:
       tags: [Pesanan]
       summary: Perkiraan pengembalian dana sebelum membatalkan
-      security: [{ bearer: [booking:read] }]
+      security: [{ bearer: [booking:read] }, { bearerToken: [] }]
       responses:
         '200': { description: 'Persentase: >=72 jam 90%, >=24 jam 75%, >=3 jam 50%, <3 jam 0%' }
         '404': { $ref: '#/components/responses/Error' }
@@ -345,16 +395,16 @@ paths:
     post:
       tags: [Pesanan]
       summary: Membatalkan pesanan dan melepas kursi
-      security: [{ bearer: [booking:write] }]
+      security: [{ bearer: [booking:write] }, { bearerToken: [] }]
       responses:
         '200': { description: Dibatalkan }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
   /api/tickets/checkin:
     post:
-      tags: [Operator]
+      tags: [Masinis]
       summary: Check-in dengan kode tiket
-      security: [{ bearer: [checkin:write] }]
+      security: [{ bearer: [checkin:write] }, { bearerToken: [] }]
       requestBody:
         required: true
         content:
@@ -366,11 +416,19 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { description: Tiket sudah dipakai atau tidak berlaku }
   /api/payments:
+    get:
+      tags: [Pembayaran]
+      summary: Pembayaran milik sendiri untuk satu pesanan
+      security: [{ bearer: [] }, { bearerToken: [] }]
+      parameters: [{ name: bookingId, in: query, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Daftar pembayaran }
+        '422': { $ref: '#/components/responses/Error' }
     post:
       tags: [Pembayaran]
       summary: Membuat pembayaran untuk pesanan
       description: Nominal diambil dari booking-service. Hanya satu pembayaran aktif per pesanan.
-      security: [{ bearer: [payment:write] }]
+      security: [{ bearer: [payment:write] }, { bearerToken: [] }]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
         required: true
@@ -382,19 +440,70 @@ paths:
               additionalProperties: false
               properties:
                 bookingId: { type: string }
-                method: { type: string, enum: [QRIS, VA_BCA, VA_MANDIRI, CARD_TOKEN], default: QRIS }
+                method: { type: string, enum: [QRIS, VA_BCA, VA_MANDIRI], default: QRIS, description: QRIS lunas lewat webhook. VA lunas setelah bukti transfer diterima admin. }
       responses:
         '201': { description: 'Berisi payment, checkoutToken, dan instructions' }
         '400': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /api/payments/{id}/proof:
+    post:
+      tags: [Pembayaran]
+      summary: Mengunggah bukti transfer VA
+      description: JPG, PNG, WEBP, atau PDF sampai 3 MB, dikirim sebagai base64. Jenis berkas dicek dari isinya. Status menjadi UNDER_REVIEW dan kursi ditahan sampai 24 jam (maksimal 1 jam sebelum berangkat). Bisa diunggah ulang setelah REJECTED.
+      security: [{ bearer: ['payment:write'] }, { bearerToken: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dataBase64]
+              properties:
+                fileName: { type: string, maxLength: 120 }
+                dataBase64: { type: string, description: Isi berkas dalam base64 }
+                note: { type: string, maxLength: 300 }
+      responses:
+        '201': { description: Bukti diterima, menunggu verifikasi admin }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { description: 'NOT_A_TRANSFER atau PROOF_NOT_ACCEPTED', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { $ref: '#/components/responses/Error' }
+  /api/payments/proofs/{proofId}/file:
+    get:
+      tags: [Pembayaran]
+      summary: Berkas bukti transfer (pemilik atau admin)
+      security: [{ bearer: [] }, { bearerToken: [] }]
+      parameters: [{ name: proofId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Berkas, content: { image/png: {}, image/jpeg: {}, image/webp: {}, application/pdf: {} } }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/qris/{token}:
+    get:
+      tags: [Pembayaran]
+      summary: Halaman QRIS yang dibuka ponsel setelah memindai
+      description: Publik karena token checkout acak dan sekali pakai. Tidak memuat data pribadi penumpang.
+      parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: 'Nominal, status, kode pesanan, kereta, rute, jam' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/qris/{token}/pay:
+    post:
+      tags: [Pembayaran]
+      summary: Membayar QRIS dari ponsel (simulasi penyedia)
+      description: Memicu webhook bertanda tangan ke payment service. Pemindaian ulang tidak membayar dua kali.
+      parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+      responses:
+        '202': { description: Diproses }
+        '200': { description: Sudah dibayar atau kedaluwarsa (accepted false) }
+        '404': { $ref: '#/components/responses/Error' }
   /api/payments/{id}:
     parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
     get:
       tags: [Pembayaran]
       summary: Status pembayaran milik sendiri
-      security: [{ bearer: [] }]
+      security: [{ bearer: [] }, { bearerToken: [] }]
       responses:
         '200': { description: Pembayaran }
         '404': { $ref: '#/components/responses/Error' }
@@ -429,7 +538,7 @@ paths:
       tags: [Pembayaran]
       summary: Gateway pembayaran simulasi (hanya lingkungan demo)
       description: Menjawab 202, hasilnya datang lewat webhook. Nomor kartu mentah ditolak.
-      security: [{ bearer: [payment:write] }]
+      security: [{ bearer: [payment:write] }, { bearerToken: [] }]
       parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
       requestBody:
         content:
@@ -438,7 +547,7 @@ paths:
               type: object
               properties:
                 outcome: { type: string, enum: [success, fail] }
-                cardToken: { type: string, example: tok_demo123 }
+                amountOverride: { type: integer, description: Hanya untuk uji AMOUNT_MISMATCH }
       responses:
         '202': { description: Sedang diproses }
         '404': { $ref: '#/components/responses/Error' }
@@ -448,14 +557,28 @@ paths:
     get:
       tags: [Notifikasi]
       summary: Notifikasi milik sendiri
-      security: [{ bearer: [] }]
+      security: [{ bearer: [] }, { bearerToken: [] }]
       responses:
         '200': { description: Daftar notifikasi }
+  /api/notifications/unread-count:
+    get:
+      tags: [Notifikasi]
+      summary: Jumlah notifikasi belum dibaca (untuk ikon lonceng)
+      security: [{ bearer: [] }, { bearerToken: [] }]
+      responses:
+        '200': { description: '{ unread }' }
+  /api/notifications/read-all:
+    post:
+      tags: [Notifikasi]
+      summary: Menandai semua notifikasi dibaca
+      security: [{ bearer: [] }, { bearerToken: [] }]
+      responses:
+        '200': { description: '{ updated }' }
   /api/notifications/{id}/read:
     post:
       tags: [Notifikasi]
       summary: Menandai notifikasi sudah dibaca
-      security: [{ bearer: [] }]
+      security: [{ bearer: [] }, { bearerToken: [] }]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
         '200': { description: Ditandai }
@@ -497,21 +620,44 @@ paths:
     get:
       tags: [Admin]
       summary: Daftar pengguna
-      security: [{ bearer: [admin] }]
+      security: [{ bearer: ['user:manage'] }, { bearerToken: [] }]
       responses:
         '200': { description: Daftar pengguna }
         '403': { $ref: '#/components/responses/Error' }
+    post:
+      tags: [Admin]
+      summary: Membuat akun (customer, masinis, atau admin)
+      security: [{ bearer: ['user:manage'] }, { bearerToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, role]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8, maxLength: 72 }
+                role: { type: string, enum: [customer, masinis, admin] }
+                phone: { type: string, nullable: true }
+                nik: { type: string, nullable: true }
+                birthDate: { type: string, format: date, nullable: true }
+      responses:
+        '201': { description: Dibuat }
+        '409': { description: EMAIL_TAKEN }
+        '422': { $ref: '#/components/responses/Error' }
   /api/admin/users/{id}/role:
     patch:
       tags: [Admin]
       summary: Mengubah peran pengguna
-      security: [{ bearer: [admin] }]
+      security: [{ bearer: [admin] }, { bearerToken: [] }]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       requestBody:
         required: true
         content:
           application/json:
-            schema: { type: object, required: [role], properties: { role: { type: string, enum: [customer, operator, admin] } } }
+            schema: { type: object, required: [role], properties: { role: { type: string, enum: [customer, masinis, admin] } } }
       responses:
         '200': { description: Diubah }
         '404': { $ref: '#/components/responses/Error' }
@@ -520,13 +666,13 @@ paths:
     get:
       tags: [Admin]
       summary: Daftar API key, hanya awalan
-      security: [{ bearer: [admin] }]
+      security: [{ bearer: [admin] }, { bearerToken: [] }]
       responses:
         '200': { description: Daftar }
     post:
       tags: [Admin]
       summary: Membuat API key, nilai penuh tampil sekali
-      security: [{ bearer: [admin] }]
+      security: [{ bearer: [admin] }, { bearerToken: [] }]
       requestBody:
         required: true
         content:
@@ -546,7 +692,7 @@ paths:
     post:
       tags: [Admin]
       summary: Rotasi key, key lama langsung mati
-      security: [{ bearer: [admin] }]
+      security: [{ bearer: [admin] }, { bearerToken: [] }]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
         '201': { description: Key baru }
@@ -555,7 +701,7 @@ paths:
     delete:
       tags: [Admin]
       summary: Mencabut key
-      security: [{ bearer: [admin] }]
+      security: [{ bearer: [admin] }, { bearerToken: [] }]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
         '200': { description: Dicabut }
@@ -564,7 +710,7 @@ paths:
     get:
       tags: [Admin]
       summary: Audit log (tanpa token atau kata sandi)
-      security: [{ bearer: ['audit:read'] }]
+      security: [{ bearer: ['audit:read'] }, { bearerToken: [] }]
       parameters: [{ name: limit, in: query, schema: { type: integer, default: 100 } }]
       responses:
         '200': { description: Catatan audit }
@@ -572,35 +718,35 @@ paths:
     get:
       tags: [Admin]
       summary: Peringatan keamanan
-      security: [{ bearer: ['audit:read'] }]
+      security: [{ bearer: ['audit:read'] }, { bearerToken: [] }]
       responses:
         '200': { description: Daftar peringatan }
   /api/admin/queue-consumed:
     get:
       tags: [Admin]
       summary: Pesan uji yang sudah dikonsumsi
-      security: [{ bearer: ['audit:read'] }]
+      security: [{ bearer: ['audit:read'] }, { bearerToken: [] }]
       responses:
         '200': { description: Daftar pesan }
   /api/admin/registry:
     get:
       tags: [Admin]
       summary: Service dan instance yang terdaftar
-      security: [{ bearer: ['system:read'] }]
+      security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       responses:
         '200': { description: Daftar service }
   /api/admin/queues:
     get:
       tags: [Admin]
       summary: Statistik antrian pesan
-      security: [{ bearer: ['system:read'] }]
+      security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       responses:
         '200': { description: Statistik }
   /api/admin/queues/{queue}/dlq:
     get:
       tags: [Admin]
       summary: Isi dead letter queue
-      security: [{ bearer: ['system:read'] }]
+      security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       parameters: [{ name: queue, in: path, required: true, schema: { type: string } }]
       responses:
         '200': { description: Isi DLQ }
@@ -608,7 +754,7 @@ paths:
     post:
       tags: [Admin]
       summary: Mengirim ulang isi DLQ
-      security: [{ bearer: ['system:read'] }]
+      security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       parameters: [{ name: queue, in: path, required: true, schema: { type: string } }]
       responses:
         '200': { description: Jumlah pesan dikirim ulang }
@@ -616,7 +762,7 @@ paths:
     post:
       tags: [Admin]
       summary: Menerbitkan pesan uji, bisa pesan beracun untuk demo DLQ
-      security: [{ bearer: ['system:read'] }]
+      security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       requestBody:
         content:
           application/json:
@@ -627,11 +773,384 @@ paths:
     get:
       tags: [Admin]
       summary: Statistik pesanan, lock, dan outbox
-      security: [{ bearer: ['system:read'] }]
+      security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       responses:
         '200': { description: Statistik }
+  /api/trains:
+    get:
+      tags: [Jadwal]
+      summary: Daftar kereta aktif (untuk dropdown nama kereta)
+      responses:
+        '200': { description: 'Kereta beserta rute, kelas, gerbong, tarif, dan jam berangkat' }
+  /api/pricing:
+    get:
+      tags: [Jadwal]
+      summary: Kebijakan tarif dan golongan usia
+      responses:
+        '200': { description: 'Termasuk seniorDiscountPercent (default 10)' }
+  /graphql:
+    post:
+      tags: [Jadwal]
+      summary: Endpoint GraphQL (protokol non-REST)
+      description: 'Query publik: stations, trains, searchTrips, trip, seatMap, upcomingDepartures, pricingPolicy. Mutation createTrip dan updateTripStatus butuh scope schedule:write. Kedalaman maksimal 8, maksimal 200 field. Contoh di docs/graphql-examples.md.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [query], properties: { query: { type: string, example: '{ stations { code name city } }' }, variables: { type: object }, operationName: { type: string } } }
+      responses:
+        '200': { description: 'data dan/atau errors[] (extensions.code, misalnya INSUFFICIENT_SCOPE, INVALID_SEGMENT)' }
+        '400': { description: 'GRAPHQL_VALIDATION_FAILED, QUERY_TOO_LARGE, INVALID_QUERY' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /graphql/schema:
+    get:
+      tags: [Jadwal]
+      summary: Skema GraphQL dalam SDL
+      responses:
+        '200': { description: Teks SDL, content: { text/plain: {} } }
+  /api/support/faq:
+    get:
+      tags: [Bantuan]
+      summary: Daftar FAQ per kategori
+      responses:
+        '200': { description: '{ categories: [{ id, title, items: [{ id, q, a }] }] }' }
+  /api/support/chat:
+    post:
+      tags: [Bantuan]
+      summary: Bertanya ke maskot Kiko (Gemini, jatuh ke FAQ bila AI tidak tersedia)
+      description: Data pribadi (NIK, nomor HP, email) di pesan disamarkan sebelum dikirim ke AI. Hanya 8 pesan terakhir yang dipakai.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messages]
+              properties:
+                messages:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items: { type: object, required: [role, content], properties: { role: { type: string, enum: [user, assistant] }, content: { type: string, maxLength: 1000 } } }
+      responses:
+        '200': { description: '{ reply, source: gemini | faq }' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/masinis/trips:
+    get:
+      tags: [Masinis]
+      summary: Jadwal dinas masinis yang sedang login
+      security: [{ bearer: [masinis] }, { bearerToken: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date }, description: Default kemarin }
+        - { name: to, in: query, schema: { type: string, format: date }, description: Default 14 hari ke depan }
+      responses:
+        '200': { description: 'Perjalanan yang ditugaskan: hari, tanggal, jam, kereta, rute, status' }
+        '403': { $ref: '#/components/responses/Error' }
+  /api/masinis/trips/{id}/delay:
+    patch:
+      tags: [Masinis]
+      summary: Melaporkan keterlambatan perjalanan sendiri
+      description: 0 menit mengembalikan status SCHEDULED. Penumpang mendapat notifikasi keterlambatan.
+      security: [{ bearer: [masinis] }, { bearerToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/TripId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [delayMinutes], properties: { delayMinutes: { type: integer, minimum: 0, maximum: 720 } } }
+      responses:
+        '200': { description: Status perjalanan terbaru }
+        '404': { description: Bukan perjalanan dinas masinis ini, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { $ref: '#/components/responses/Error' }
+  /api/admin/users/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [Admin]
+      summary: Detail pengguna
+      security: [{ bearer: ['user:manage'] }, { bearerToken: [] }]
+      responses:
+        '200': { description: Pengguna }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [Admin]
+      summary: Mengubah data pengguna (sebagian)
+      security: [{ bearer: ['user:manage'] }, { bearerToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                role: { type: string, enum: [customer, masinis, admin] }
+                phone: { type: string, nullable: true }
+                nik: { type: string, nullable: true }
+                birthDate: { type: string, format: date, nullable: true }
+                active: { type: boolean }
+      responses:
+        '200': { description: Diubah }
+        '409': { description: 'EMAIL_TAKEN atau CANNOT_CHANGE_SELF', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Admin]
+      summary: Menghapus pengguna
+      security: [{ bearer: ['user:manage'] }, { bearerToken: [] }]
+      responses:
+        '200': { description: Dihapus }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/admin/users/{id}/password:
+    post:
+      tags: [Admin]
+      summary: Mengganti kata sandi pengguna
+      security: [{ bearer: ['user:manage'] }, { bearerToken: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [password], properties: { password: { type: string, minLength: 8, maxLength: 72 } } }
+      responses:
+        '200': { description: Diganti }
+        '422': { $ref: '#/components/responses/Error' }
+  /api/admin/stations:
+    get:
+      tags: [Data Operasional]
+      summary: Semua stasiun, termasuk yang nonaktif
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      responses:
+        '200': { description: 'Stasiun beserta usedByRoute' }
+    post:
+      tags: [Data Operasional]
+      summary: Menambah stasiun
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [code, name, city], properties: { code: { type: string, pattern: '^[A-Z]{2,4}$', example: GMR }, name: { type: string, minLength: 3 }, city: { type: string } } }
+      responses:
+        '201': { description: Dibuat }
+        '409': { description: STATION_EXISTS }
+        '422': { $ref: '#/components/responses/Error' }
+  /api/admin/stations/{code}:
+    parameters: [{ name: code, in: path, required: true, schema: { type: string } }]
+    patch:
+      tags: [Data Operasional]
+      summary: Mengubah nama, kota, atau status aktif stasiun
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { name: { type: string }, city: { type: string }, active: { type: boolean } } }
+      responses:
+        '200': { description: Diubah }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Data Operasional]
+      summary: Menghapus stasiun yang tidak dipakai rute
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      responses:
+        '200': { description: Dihapus }
+        '409': { description: STATION_IN_USE }
+  /api/admin/trains:
+    get:
+      tags: [Data Operasional]
+      summary: Semua kereta, termasuk nonaktif dan masinis yang ditugaskan
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      responses:
+        '200': { description: Daftar kereta }
+    post:
+      tags: [Data Operasional]
+      summary: Membuat kereta (nonaktif sampai rute dan jam lengkap)
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, number, name, classes]
+              properties:
+                id: { type: string, pattern: '^[A-Z]{2,4}$', example: ABA }
+                number: { type: string, example: KA 1 }
+                name: { type: string, example: Argo Bromo Anggrek }
+                classes: { type: array, items: { type: string, enum: [EKONOMI, EKSEKUTIF, LUXURY] }, description: Menentukan susunan 9 gerbong }
+      responses:
+        '201': { description: Dibuat }
+        '409': { description: TRAIN_EXISTS }
+        '422': { $ref: '#/components/responses/Error' }
+  /api/admin/trains/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, example: GJY } }]
+    get:
+      tags: [Data Operasional]
+      summary: Detail kereta
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      responses:
+        '200': { description: Kereta }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [Data Operasional]
+      summary: Mengubah nama, nomor, status aktif, atau masinis
+      description: Kereta nonaktif tidak tampil ke pengguna. Mengaktifkan butuh rute minimal 2 stasiun dan jam operasional (TRAIN_INCOMPLETE). Penugasan masinis berlaku untuk perjalanan yang belum berangkat.
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { name: { type: string }, number: { type: string }, enabled: { type: boolean }, masinisId: { type: string, nullable: true }, masinisName: { type: string } } }
+      responses:
+        '200': { description: Diubah }
+        '409': { description: TRAIN_INCOMPLETE }
+    delete:
+      tags: [Data Operasional]
+      summary: Menghapus kereta tanpa riwayat perjalanan
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      responses:
+        '200': { description: Dihapus }
+        '409': { description: TRAIN_HAS_HISTORY, nonaktifkan saja }
+  /api/admin/trains/{id}/route:
+    put:
+      tags: [Data Operasional]
+      summary: Mengganti rute (urutan stasiun, menit, km)
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stops]
+              properties:
+                stops: { type: array, minItems: 2, maxItems: 20, items: { type: object, properties: { code: { type: string }, minuteOffset: { type: integer }, km: { type: integer } } }, description: 'Stasiun pertama 0 menit 0 km, berikutnya harus naik' }
+      responses:
+        '200': { description: Diganti, berlaku untuk jadwal yang dibuat berikutnya }
+        '422': { $ref: '#/components/responses/Error' }
+  /api/admin/trains/{id}/fares:
+    put:
+      tags: [Data Operasional]
+      summary: Tarif per kelas (dasar + per km)
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [fares], properties: { fares: { type: array, items: { type: object, properties: { seatClass: { type: string, enum: [EKONOMI, EKSEKUTIF, LUXURY] }, base: { type: integer }, perKm: { type: integer } } } } } }
+      responses:
+        '200': { description: Disimpan }
+        '422': { $ref: '#/components/responses/Error' }
+  /api/admin/trains/{id}/services:
+    put:
+      tags: [Data Operasional]
+      summary: Jam operasional per arah
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [services], properties: { services: { type: array, maxItems: 12, items: { type: object, properties: { direction: { type: string, enum: [A, B] }, departureTime: { type: string, example: '07:40' }, active: { type: boolean } } } } } }
+      responses:
+        '200': { description: Disimpan }
+        '422': { $ref: '#/components/responses/Error' }
+  /api/admin/trains/{id}/regenerate:
+    post:
+      tags: [Data Operasional]
+      summary: Menerapkan rute dan jam baru ke jadwal mendatang yang belum ada pemesan
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: '{ removed, kept, created }' }
+  /api/admin/trains/{id}/trips:
+    get:
+      tags: [Data Operasional]
+      summary: Riwayat dan jadwal perjalanan satu kereta (Armada & Riwayat)
+      security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Daftar perjalanan }
+  /api/admin/settings:
+    get:
+      tags: [Data Operasional]
+      summary: Pengaturan tarif
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      responses:
+        '200': { description: '{ seniorDiscountPercent }' }
+    put:
+      tags: [Data Operasional]
+      summary: Mengubah diskon lansia
+      security: [{ bearer: ['schedule:write'] }, { bearerToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [seniorDiscountPercent], properties: { seniorDiscountPercent: { type: integer, minimum: 0, maximum: 100, default: 10 } } }
+      responses:
+        '200': { description: Disimpan }
+        '422': { $ref: '#/components/responses/Error' }
+  /api/admin/catalog-stats:
+    get:
+      tags: [Admin]
+      summary: Ringkasan katalog untuk dashboard
+      security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
+      responses:
+        '200': { description: Statistik }
+  /api/admin/trips/{id}/passengers:
+    get:
+      tags: [Admin]
+      summary: Daftar penumpang satu perjalanan beserta email pemesan
+      security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/TripId' }]
+      responses:
+        '200': { description: Penumpang }
+  /api/admin/trip-stats:
+    post:
+      tags: [Admin]
+      summary: Jumlah penumpang untuk banyak perjalanan sekaligus
+      security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [tripIds], properties: { tripIds: { type: array, maxItems: 200, items: { type: string } } } }
+      responses:
+        '200': { description: Statistik per perjalanan }
+  /api/admin/transfers:
+    get:
+      tags: [Admin]
+      summary: Bukti transfer VA untuk diverifikasi
+      security: [{ bearer: ['payment:review'] }, { bearerToken: [] }]
+      parameters: [{ name: status, in: query, schema: { type: string, enum: [SUBMITTED, ACCEPTED, REJECTED] }, description: Tanpa nilai berarti semua }]
+      responses:
+        '200': { description: 'transfers[]: proof, payment, user (email, nama, NIK), booking (kereta, keberangkatan)' }
+  /api/admin/transfers/{proofId}/decision:
+    post:
+      tags: [Admin]
+      summary: Menerima atau menolak bukti transfer
+      description: Keputusan bisa diubah kemudian. REJECT mengirim notifikasi berisi alasan ke pengguna. Mengubah ACCEPT menjadi REJECT membatalkan pesanan.
+      security: [{ bearer: ['payment:review'] }, { bearerToken: [] }]
+      parameters: [{ name: proofId, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [decision], properties: { decision: { type: string, enum: [ACCEPT, REJECT] }, reason: { type: string, minLength: 5, maxLength: 300, description: Wajib untuk REJECT } } }
+      responses:
+        '200': { description: Keputusan disimpan }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { description: PAYMENT_CLOSED }
+        '422': { $ref: '#/components/responses/Error' }
 components:
   securitySchemes:
+    bearerToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Tempel access token (JWT) yang sudah didapat, misalnya dari Postman atau dari alur `/oauth/authorize` -> `/oauth/login` -> `/oauth/token`.
     bearer:
       type: oauth2
       description: JWT RS256 dari Authorization Code + PKCE, atau Client Credentials.
@@ -641,7 +1160,7 @@ components:
           tokenUrl: /oauth/token
           scopes:
             customer: Pelanggan
-            operator: Operator
+            masinis: Masinis
             admin: Admin
             schedule:write: Mengubah jadwal
             booking:read: Membaca pesanan sendiri
@@ -651,6 +1170,10 @@ components:
             checkin:write: Check-in tiket
             system:read: Melihat kesehatan sistem
             audit:read: Membaca audit
+            schedule:read: Membaca jadwal
+            payment:review: Memverifikasi bukti transfer
+            user:manage: Mengelola pengguna
+            apikey:manage: Mengelola API key
         clientCredentials:
           tokenUrl: /oauth/token
           scopes:
@@ -664,7 +1187,7 @@ components:
       name: id
       in: path
       required: true
-      schema: { type: string, example: ARN-20261110-1 }
+      schema: { type: string, example: GJY-20261120-A0740 }
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -716,16 +1239,17 @@ components:
       required: [tripId, from, to, seats]
       additionalProperties: false
       properties:
-        tripId: { type: string, example: ARN-20261110-1 }
-        from: { type: string, example: SGU }
+        tripId: { type: string, example: GJY-20261120-A0740 }
+        from: { type: string, example: GMR }
         to: { type: string, example: MN }
         seats:
           type: array
           minItems: 1
-          maxItems: 4
+          maxItems: 648
           uniqueItems: true
           items: { type: string, pattern: '^[A-Z0-9]{2,6}-[0-9]{1,2}[A-D]$', example: EKS1-7A }
         ttlSeconds: { type: integer, minimum: 3, maximum: 3600, description: Hanya bisa memperpendek batas server (600 detik). }
+      description: Jumlah kursi per pesanan tidak dibatasi. maxItems 648 hanya batas teknis (kapasitas rangkaian terbesar, 9 gerbong x 72 kursi).
     Lock:
       type: object
       properties:
@@ -746,7 +1270,7 @@ components:
         passengers:
           type: array
           minItems: 1
-          maxItems: 4
+          maxItems: 648
           items:
             type: object
             required: [seatId, name, age]
@@ -780,7 +1304,8 @@ components:
               seatClass: { type: string }
               name: { type: string }
               age: { type: integer }
-              passengerType: { type: string, enum: [CHILD, ADULT, SENIOR] }
+              passengerType: { type: string, enum: [INFANT, CHILD, ADULT, SENIOR], description: 'Bayi 0-3, anak 4-16, dewasa 17-59 bertarif normal. Lansia 60+ mendapat diskon.' }
+              passengerTypeLabel: { type: string, example: Lansia }
               fare: { type: integer }
               nikMasked: { type: string, nullable: true, example: '************0001' }
               ticketCode: { type: string, nullable: true }

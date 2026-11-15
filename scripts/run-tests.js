@@ -46,7 +46,8 @@ async function withStack(fn) {
   fs.rmSync(dataDir, { recursive: true, force: true });
   const logDir = path.join(REPORTS, 'logs-test');
   const env = {
-    DATA_DIR: 'data-test', PUBLIC_URL: TEST_BASE, CORS_ORIGINS: TEST_BASE, LOAD_USERS: '60',
+    // HISTORY_DAYS=0: tanpa riwayat perjalanan masa lalu, agar seeding tidak berebut database dengan pengujian.
+    DATA_DIR: 'data-test', PUBLIC_URL: TEST_BASE, CORS_ORIGINS: TEST_BASE, LOAD_USERS: '61', HISTORY_DAYS: '0', SEED_DEMO_CUSTOMERS: '1',
     RATE_GLOBAL_PER_MIN: '60000', RATE_PUBLIC_READ_PER_MIN: '60000', RATE_GRAPHQL_PER_MIN: '60000', RATE_LOCK_PER_MIN: '6000', RATE_PAYMENT_PER_MIN: '6000', RATE_TOKEN_PER_MIN: '6000', RATE_REGISTER_PER_MIN: '6000',
   };
   console.log(`\nMenyalakan stack pengujian di ${TEST_BASE} ...`);
@@ -107,7 +108,7 @@ const suites = {
   load: () => withStack(async ({ env }) => {
     const hasK6 = spawnSync('k6', ['version'], { encoding: 'utf8' }).status === 0;
     if (!hasK6) { console.log('k6 tidak ditemukan, memakai penggerak Node.'); return nodeScript('tests/load/node-load.js', env); }
-    return spawnSync('k6', ['run', '-e', `BASE_URL=${TEST_BASE}`, '-e', `SEED_PASSWORD=${env.SEED_USER_PASSWORD}`, '-e', `SUMMARY_FILE=${path.join('reports', 'load-k6-summary.json')}`, '-e', `DURATION=${process.env.LOAD_DURATION || '45s'}`, 'tests/load/k6-booking.js'], { cwd: ROOT, stdio: 'inherit', env }).status === 0;
+    return spawnSync('k6', ['run', '-e', `BASE_URL=${TEST_BASE}`, '-e', `SEED_PASSWORD=${env.SEED_USER_PASSWORD}`, '-e', `SUMMARY_FILE=${path.join('reports', 'load-k6-summary.json')}`, '-e', `DURATION=${process.env.LOAD_DURATION || '45s'}`, ...(process.env.DEBUG_FAIL ? ['-e', 'DEBUG_FAIL=1'] : []), 'tests/load/k6-booking.js'], { cwd: ROOT, stdio: 'inherit', env }).status === 0;
   }),
 };
 

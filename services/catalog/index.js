@@ -100,6 +100,22 @@ const fresh = S.seed(db);
 ensureTrips(fresh ? -HISTORY_DAYS : 0, AHEAD_DAYS);
 setInterval(() => { try { ensureTrips(0, AHEAD_DAYS); } catch (e) { log.warn('pembuatan jadwal gagal', { err: e.message }); } }, 3600000).unref();
 
+/* Pengingat dinas: masinis diberi tahu sekali, 60 menit sebelum perjalanan yang ditugaskan kepadanya berangkat. */
+try { db.exec('ALTER TABLE trips ADD COLUMN masinis_reminded INTEGER NOT NULL DEFAULT 0'); } catch { /* kolom sudah ada */ }
+const DUTY_NOTICE_MS = 60 * 60000;
+function remindDuty() {
+  const now = Date.now();
+  const due = db.prepare(`SELECT id FROM trips WHERE masinis_id IS NOT NULL AND masinis_reminded=0 AND status!='CANCELLED'
+    AND departure_at + delay_minutes*60000 > ? AND departure_at + delay_minutes*60000 <= ?`).all(now, now + DUTY_NOTICE_MS);
+  for (const { id } of due) {
+    const t = loadTrip(id);
+    db.prepare('UPDATE trips SET masinis_reminded=1 WHERE id=?').run(id);
+    bus.publishSafe('trip.duty_soon', { tripId: id, userId: t.masinisId, trainName: t.trainName, fromName: t.stops[0].station.name, departureAt: t.departureMs, delayMinutes: t.delayMinutes, at: now }, { key: id, id: `duty-${id}` });
+  }
+}
+setInterval(() => { try { remindDuty(); } catch (e) { log.warn('pengingat dinas gagal', { err: e.message }); } }, 60000).unref();
+setTimeout(() => { try { remindDuty(); } catch { /* dicoba lagi tiap menit */ } }, 15000).unref();
+
 /* Masinis demo dibagikan otomatis ke armada yang belum punya masinis, setelah auth-service siap. */
 async function assignDefaultMasinis() {
   const pending = st.trains.all().filter((t) => !t.masinis_id && t.masinis_slot !== null);

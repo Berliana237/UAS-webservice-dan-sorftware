@@ -4,36 +4,39 @@ Test otomatis ada di `tests/` dan `services/booking/src/test`. Tabel ini menjela
 
 ## Equivalence Partitioning dan Boundary Value Analysis
 
-### Jumlah kursi per pesanan (batas 1 sampai 4)
+### Jumlah kursi per pesanan (minimal 1, tanpa batas atas)
+
+Jumlah kursi tidak dibatasi aturan bisnis. Batas teknis skema adalah 648 (kapasitas rangkaian terbesar, 9 gerbong x 72 kursi). Penimbunan dicegah oleh batas 2 lock aktif per pengguna per perjalanan dan rate limit 30 lock per menit.
 
 | Nilai | Kelas | Hasil diharapkan | Test |
 |---|---|---|---|
 | 0 | Tidak valid, bawah | 422 | `test_seat_count_boundaries`, `invalidSeatLists` |
 | 1 | Batas bawah | 201 | sama |
-| 4 | Batas atas | 201 | sama |
-| 5 | Tidak valid, atas | 422 | sama |
+| 4, 5, 12 | Valid | 201 | `test_seat_count_boundaries` |
+| 72, 648 | Valid (satu gerbong, satu rangkaian) | Diterima skema | `seatCountWithinLimit`, unit test skema |
+| Kursi kembar | Tidak valid | 422 | `invalidSeatLists`, Postman |
 
 ### Usia penumpang
 
 | Nilai | Golongan | Tarif | Test |
 |---|---|---|---|
 | -1 | Tidak valid | Ditolak | `outOfRangeAgeThrows` |
-| 0, 2 | Bayi | Ditolak, tidak perlu kursi | `ageBoundaries`, `test_age_and_nik_decision_table` |
-| 3, 11 | Anak | 75% | `test_fare_by_age_boundaries` |
-| 12, 59 | Dewasa | 100% | sama |
-| 60, 120 | Lansia | 80% | sama |
+| 0, 3 | Bayi | 100%, kursi sendiri, NIK boleh kosong | `ageBoundaries`, `test_fare_by_age_boundaries` |
+| 4, 16 | Anak | 100%, NIK boleh kosong | sama |
+| 17, 59 | Dewasa | 100%, NIK wajib | sama |
+| 60, 120 | Lansia | 90% (diskon default 10%, diatur admin 0-100%) | sama |
 | 121 | Tidak valid | Ditolak | `outOfRangeAgeThrows` |
 
 ### NIK
 
 | Nilai | Kelas | Hasil |
 |---|---|---|
-| 16 digit, format benar | Valid | Diterima |
-| 15 digit, 17 digit | Panjang salah | `INVALID_NIK` |
-| Provinsi 10, 97 | Batas provinsi | `INVALID_NIK` |
-| Tanggal 32, 40, 72 | Batas tanggal (perempuan +40) | `INVALID_NIK` |
-| Tanggal 71 | Batas atas perempuan | Diterima |
-| Bulan 00, 13 | Batas bulan | `INVALID_NIK` |
+| 16 digit angka apa saja | Valid (tidak dicek ke data kependudukan) | Diterima |
+| 15 digit | Panjang salah | `INVALID_NIK` |
+| 17 digit | Panjang salah | 422 `SCHEMA_VALIDATION_FAILED` (gateway) |
+| Mengandung huruf | Bukan angka | `INVALID_NIK` |
+| Kosong, usia 17+ | Wajib | `NIK_REQUIRED` |
+| Kosong, usia di bawah 17 | Boleh | Diterima |
 
 ### TTL lock
 
@@ -79,16 +82,16 @@ Test otomatis ada di `tests/` dan `services/booking/src/test`. Tabel ini menjela
 
 ## Decision table: tumpang tindih segmen
 
-Lock pertama: Surabaya ke Madiun, segmen `[0,5)`.
+Kereta Gajayana (GMR 0, CN 1, PWT 2, YK 3, SLO 4, MN 5, KD 6, BL 7, ML 8). Lock pertama: Gambir ke Madiun, segmen `[0,5)`.
 
 | Lock kedua | Rentang | Tumpang tindih | Hasil |
 |---|---|---|---|
-| Madiun ke Yogyakarta | `[5,8)` | Tidak, batas tepat | 201 |
-| Ngawi ke Solo | `[6,7)` | Tidak | 201 |
-| Nganjuk ke Madiun | `[4,5)` | Ya, segmen terakhir | 409 |
-| Surabaya ke Mojokerto | `[0,1)` | Ya, segmen pertama | 409 |
-| Jombang ke Ngawi | `[2,6)` | Ya, melewati batas | 409 |
-| Surabaya ke Madiun | `[0,5)` | Ya, sama persis | 409 |
+| Madiun ke Malang | `[5,8)` | Tidak, batas tepat | 201 |
+| Kediri ke Blitar | `[6,7)` | Tidak | 201 |
+| Solo Balapan ke Madiun | `[4,5)` | Ya, segmen terakhir | 409 |
+| Gambir ke Cirebon | `[0,1)` | Ya, segmen pertama | 409 |
+| Purwokerto ke Kediri | `[2,6)` | Ya, melewati batas | 409 |
+| Gambir ke Madiun | `[0,5)` | Ya, sama persis | 409 |
 
 ## State transition: status pesanan
 

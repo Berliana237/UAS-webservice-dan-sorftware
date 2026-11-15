@@ -191,12 +191,14 @@ public final class Api {
 
     private void createLock(HttpApp.Ctx ctx) throws IOException {
         var u = ctx.user("booking:write");
+        // Data perjalanan diambil dari catalog SEBELUM transaksi tulis dibuka. Panggilan jaringan di dalam transaksi
+        // menahan kunci tulis SQLite dan membuat seluruh seat locking di semua instance ikut antre.
+        TripCatalog.Trip trip = catalog.get(required(jsonBody(ctx), "tripId"));
         idempotent(ctx, u.sub(), "POST /api/locks", 201, () -> {
             JsonNode b = ctx.body();
             String tripId = required(b, "tripId");
             List<String> seats = new ArrayList<>();
             b.path("seats").forEach(s -> seats.add(s.asText()));
-            TripCatalog.Trip trip = catalog.get(tripId);
             SegmentRange range = trip.range(required(b, "from"), required(b, "to"));
             trip.assertBookable(range, System.currentTimeMillis());
             trip.assertSeatsExist(seats);
@@ -207,6 +209,13 @@ public final class Api {
 
     private void createBooking(HttpApp.Ctx ctx) throws IOException {
         var u = ctx.user("booking:write");
+        // Hangatkan cache catalog di luar transaksi (lihat createLock). Kesalahan di sini diabaikan, karena
+        // pemeriksaan yang sebenarnya diulang di dalam transaksi dan menghasilkan error yang tepat.
+        try {
+            catalog.get(locks.get(required(jsonBody(ctx), "lockId"), u.sub()).tripId());
+        } catch (DomainException ignored) {
+            // lock tidak ada, milik orang lain, atau catalog sedang tidak tersedia
+        }
         idempotent(ctx, u.sub(), "POST /api/bookings", 201, () -> {
             JsonNode b = ctx.body();
             List<BookingService.PassengerInput> pax = new ArrayList<>();
@@ -223,6 +232,14 @@ public final class Api {
         List<String> ids = new ArrayList<>();
         body.path("tripIds").forEach(n -> { if (ids.size() < 200 && n.asText("").matches("[A-Za-z0-9_-]{1,64}")) ids.add(n.asText()); });
         return ids;
+    }
+
+    private static JsonNode jsonBody(HttpApp.Ctx ctx) {
+        try {
+            return ctx.body();
+        } catch (IOException e) {
+            throw new DomainException(400, "INVALID_JSON", "Body bukan JSON yang valid.");
+        }
     }
 
     private static String required(JsonNode b, String field) {
