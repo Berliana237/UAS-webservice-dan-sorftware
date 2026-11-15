@@ -135,8 +135,10 @@ Lihat `tests/security/run.js`. S-01 sampai S-54 dipetakan ke OWASP API Top 10: A
 | U-02 | Tekan Tab berulang dari awal halaman | Fokus terlihat dan urut, semua kontrol terjangkau |
 | U-03 | Tekan Kiko sekali, dua kali cepat, tahan, geser | Ekspresi berubah: kesal, berputar, geli, menggelepar |
 | U-04 | Tekan Kiko lima kali beruntun | Peluit bunyi dan kereta melintas |
-| U-05 | Buka peta kursi di dua jendela. Tahan kursi di jendela pertama | Jendela kedua berubah kurang dari 1 detik tanpa muat ulang |
-| U-06 | Pilih kursi di jendela A, lalu tahan kursi itu di jendela B | Jendela A memberi tahu dan melepas pilihan |
+| U-05 | Dua perangkat dengan akun pelanggan berbeda membuka peta kursi yang sama. Perangkat A menekan satu kursi | Kursi langsung terkunci di server (`POST /api/locks`) dan di perangkat B berubah menjadi "Ditahan" serta tidak bisa ditekan, kurang dari 1 detik tanpa muat ulang |
+| U-06 | Perangkat A dan B menekan kursi yang sama hampir bersamaan | Hanya satu yang berhasil; yang lain mendapat 409 `SEAT_CONFLICT`, diberi tahu, dan pilihannya dilepas |
+| U-07 | Perangkat A membatalkan pilihan (tekan lagi) atau meninggalkan halaman | Kursi dilepas (`PUT`/`DELETE /api/locks/{id}`) dan kembali "Kosong" di perangkat B |
+| U-08 | Tamu (belum masuk) menekan kursi | Diarahkan ke halaman Masuk; setelah masuk kursi itu otomatis ditahan. Tamu tidak bisa membuat pilihan yang tidak terkunci |
 | U-07 | Pilih kursi tanpa masuk, lalu tekan Tahan | Diarahkan masuk, pilihan tersimpan setelah kembali |
 | U-08 | Ketik NIK salah | Pesan langsung muncul, formulir tidak terkirim |
 | U-09 | Biarkan hitung mundur habis | Dialog menjelaskan, kursi dilepas, ada jalan kembali |

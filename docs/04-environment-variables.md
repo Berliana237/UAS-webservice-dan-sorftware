@@ -68,3 +68,17 @@
 ## Untuk Docker Compose
 
 `REGISTRY_HOST`, `BROKER_HOST`, `AUTH_HOST`, `CATALOG_HOST`, `PAYMENT_HOST`, `NOTIFICATION_HOST`, `SUPPORT_HOST`, `BOOKING_HOST`, `BOOKING_PORT`, `INSTANCE_ID`. Sudah diisi di `docker-compose.yml`.
+
+## Khusus pengujian dan pengembangan lokal
+
+Tidak perlu diisi untuk mengakses deployment. Dipakai oleh `test.bat`, `run.bat`, atau skrip di `scripts/` dan `tests/`.
+
+| Variabel | Default | Fungsi |
+|---|---|---|
+| `SEED_DEMO_CUSTOMERS` | `0` | `1` membuat akun pelanggan demo (`customer@rangkai.test`, `customer2@rangkai.test`) di stack pengujian |
+| `SEED_DEMO_HISTORY` | `0` | `1` membuat riwayat pesanan rekaan untuk grafik dan laporan |
+| `SUPPORT_CHAT_BUDGET_MS` | `12000` | Batas waktu jawaban chat AI sebelum jatuh ke FAQ |
+| `OPEN_BROWSER` | `0` | `1` membuka browser otomatis setelah `run.bat` siap |
+| `QRIS_PROXY_PORT` | `8090` | Port proksi lokal untuk `qris-tunnel.bat` |
+| `LOAD_DURATION` | sesuai skrip | Durasi load test k6 (`tests/load/k6-booking.js`) |
+| `DEBUG_FAIL` | kosong | Isi apa saja agar load test k6 mencetak contoh permintaan yang gagal |

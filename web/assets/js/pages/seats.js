@@ -138,7 +138,7 @@ export function render(main, { params, query }) {
         <p class="muted mono">${timeOf(a.departAt)} &rarr; ${timeOf(b.arriveAt)} · ${map.km} km</p><p class="muted">${dateLong(a.departAt)}</p></div>
       <div class="perf"></div>
       <div class="sum-body">
-        ${n ? `<ul class="sum-list">${list}</ul>` : '<p class="muted sum-empty">Tekan kursi kosong pada denah. Anda bisa memilih banyak kursi sekaligus, dari gerbong mana saja.</p>'}
+        ${n ? `<ul class="sum-list">${list}</ul>` : '<p class="muted sum-empty">Tekan kursi kosong pada denah (perlu masuk sebagai pelanggan). Kursi langsung ditahan untuk Anda dan terlihat "Ditahan" oleh penumpang lain. Anda bisa memilih banyak kursi sekaligus, dari gerbong mana saja.</p>'}
         <div class="sum-meter"><span>${n} kursi dipilih</span></div>
         <div class="sum-total"><span>Perkiraan total</span><b class="mono">${rupiah(total())}</b></div>
         <p class="sum-note muted">Harga dewasa. Lansia otomatis mendapat potongan ${map.seniorDiscountPercent}% saat data penumpang diisi.</p>
@@ -207,6 +207,17 @@ export function render(main, { params, query }) {
   }
 
   function pick(id, btn) {
+    // Memilih kursi berarti mengunci kursi di server, jadi wajib masuk sebagai pelanggan.
+    // Tanpa ini pilihan tamu hanya ada di perangkatnya sendiri dan tidak terlihat (dan bisa diambil) pengguna lain.
+    if (!currentUser()) {
+      selected.add(id);
+      persist();
+      toast('Masuk dulu untuk menahan kursi. Kursi yang Anda pilih akan langsung ditahan setelah masuk.', 'info');
+      Kiko.react('pilih', 'Masuk dulu, ya. Kursinya saya tahan begitu Anda kembali.', 2400);
+      go(`/masuk?next=${encodeURIComponent(location.pathname + location.search)}`);
+      return;
+    }
+    if (!hasScope('booking:write')) { toast('Akun ini tidak bisa memesan tiket. Gunakan akun pelanggan.', 'warn'); return; }
     selected.add(id);
     persist();
     idemKey = uuid();
@@ -343,6 +354,8 @@ export function render(main, { params, query }) {
     if (!d.trip) throw new Error('Perjalanan tidak ditemukan.');
     trip = d.trip;
     map = d.seatMap;
+    // Tamu/staf tidak bisa mengunci: jangan tampilkan pilihan lokal yang tidak benar-benar ditahan di server.
+    if (!canLock()) selected.clear();
     for (const id of [...selected]) if (seatById(id)?.seat.status !== 'AVAILABLE' && !mine.has(id)) selected.delete(id);
     persist();
     syncLock();
