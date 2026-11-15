@@ -8,10 +8,10 @@ Calvin Liu Victory hanya mengambil mata kuliah Web Service, dan Evander Doxa Wid
 
 | NIM | Nama | Web Service | Software Testing |
 |---|---|---|---|
-| 5803024004 | Jap Robertus Kurniawan Setiabudi | **28%** | 27% |
+| 5803024004 | Jap Robertus Kurniawan Setiabudi | 27% | 27% |
 | 5803024005 | Daniel | 27% | 27% |
-| 5803024015 | Berliana Az Zahra Tristianti | 27% | **28%** |
-| 5803024003 | Calvin Liu Victory | 18% | tidak mengambil |
+| 5803024015 | Berliana Az Zahra Tristianti | 26% | **28%** |
+| 5803024003 | Calvin Liu Victory | 20% | tidak mengambil |
 | 5803024016 | Evander Doxa Widiyanto | tidak mengambil | 18% |
 | | **Total** | **100%** | **100%** |
 
@@ -21,10 +21,10 @@ Pembagian mengikuti rubrik: arsitektur & desain (20%), justifikasi protokol (10%
 
 | Anggota | Tanggung jawab | Komponen rubrik |
 |---|---|---|
-| **Jap Robertus** (28%) | Ketua teknis. Rancangan arsitektur microservices dan diagram. booking-service Java: seat locking per segmen (`BEGIN IMMEDIATE`, TTL 10 menit, kursi terkunci saat dipilih lewat `POST`/`PUT /api/locks`), outbox, pembaruan kursi real-time (SSE). API Gateway: routing, validasi skema, rate limit, load balancing booking-a/booking-b. Integrasi seluruh service, deployment Railway dan volume data. Koordinator respons bug report dari Kelompok B | Arsitektur, implementasi, respons bug |
+| **Jap Robertus** (27%) | Ketua teknis. Rancangan arsitektur microservices dan diagram. booking-service Java: seat locking per segmen (`BEGIN IMMEDIATE`, TTL 10 menit, kursi terkunci saat dipilih lewat `POST`/`PUT /api/locks`), outbox, pembaruan kursi real-time (SSE). API Gateway: routing, validasi skema, rate limit, load balancing booking-a/booking-b. Integrasi seluruh service, deployment Railway dan volume data. Koordinator respons bug report dari Kelompok B | Arsitektur, implementasi, respons bug |
 | **Daniel** (27%) | auth-service: OAuth2 Authorization Code + PKCE, JWT RS256, refresh token berotasi, Client Credentials, API key partner. mTLS antar service dan pembuatan sertifikat. Message broker (topik, lease, retry, DLQ), service registry (heartbeat, discovery), dan notification-service (konsumen event, notifikasi, audit log). Rancangan keamanan (`01-rancangan-keamanan.md`) | Keamanan, implementasi |
-| **Berliana** (27%) | catalog-service dan GraphQL (skema, resolver, batas kedalaman/kompleksitas query), `schema.graphql` dan `graphql-examples.md`. payment-service: QRIS simulasi, webhook bertanda tangan HMAC, unggah bukti transfer, refund. Justifikasi pilihan protokol (`02-justifikasi-protokol.md`). Spesifikasi OpenAPI dan Swagger UI | Justifikasi protokol, dokumentasi API, implementasi |
-| **Calvin** (18%) | Aplikasi web (SPA) termasuk tampilan responsif ponsel/tablet, support-service (FAQ + chat AI). README, daftar environment variable, koleksi Postman beserta environment template untuk penguji | Dokumentasi API, implementasi |
+| **Berliana** (26%) | catalog-service dan GraphQL (skema, resolver, batas kedalaman/kompleksitas query), `schema.graphql` dan `graphql-examples.md`. payment-service: QRIS simulasi, webhook bertanda tangan HMAC, unggah bukti transfer, refund. Justifikasi pilihan protokol (`02-justifikasi-protokol.md`). Spesifikasi OpenAPI dan Swagger UI | Justifikasi protokol, dokumentasi API, implementasi |
+| **Calvin** (20%) | Aplikasi web (SPA) termasuk tampilan responsif ponsel/tablet, support-service (FAQ + chat AI). README, daftar environment variable, koleksi Postman beserta environment template untuk penguji | Dokumentasi API, implementasi |
 
 ## Software Testing (kelompok penguji, menguji sistem Kelompok E)
 
