@@ -18,11 +18,11 @@ Database SQLite tiap service tersimpan di volume persisten, sehingga data tidak 
 
 | NIM | Nama | Web Service | Software Testing |
 |---|---|---|---|
-| 5803024004 | Jap Robertus Kurniawan Setiabudi | 30% | 18,7% |
-| 5803024005 | Daniel | 24% | 18,7% |
-| 5803024015 | Berliana Az Zahra Tristianti | 16% | 23,2% |
-| 5803024003 | Calvin Liu Victory | 15% | 20,7% |
-| 5803024016 | Evander Doxa Widiyanto | 15% | 18,7% |
+| 5803024004 | Jap Robertus Kurniawan Setiabudi | 25% | 20% |
+| 5803024005 | Daniel | 24% | 18% |
+| 5803024015 | Berliana Az Zahra Tristianti | 21% | 24% |
+| 5803024003 | Calvin Liu Victory | 15% | 22% |
+| 5803024016 | Evander Doxa Widiyanto | 15% | 16% |
 
 Rincian tugas per orang dan per minggu (minggu 8 sampai UAS) ada di [docs/05-pembagian-tugas.md](docs/05-pembagian-tugas.md).
 

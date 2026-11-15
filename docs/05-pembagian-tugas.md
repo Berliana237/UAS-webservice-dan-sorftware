@@ -6,11 +6,11 @@ Proyek lintas mata kuliah Web Service x Software Testing. Menurut rotasi pada so
 
 | NIM | Nama | Web Service | Software Testing |
 |---|---|---|---|
-| 5803024004 | Jap Robertus Kurniawan Setiabudi | **30%** | 18,7% |
-| 5803024005 | Daniel | **24%** | 18,7% |
-| 5803024015 | Berliana Az Zahra Tristianti | 16% | **23,2%** |
-| 5803024003 | Calvin Liu Victory | 15% | **20,7%** |
-| 5803024016 | Evander Doxa Widiyanto | 15% | 18,7% |
+| 5803024004 | Jap Robertus Kurniawan Setiabudi | **25%** | 20% |
+| 5803024005 | Daniel | **24%** | 18% |
+| 5803024015 | Berliana Az Zahra Tristianti | 21% | **24%** |
+| 5803024003 | Calvin Liu Victory | 15% | **22%** |
+| 5803024016 | Evander Doxa Widiyanto | 15% | 16% |
 | | **Total** | **100%** | **100%** |
 
 ## Web Service (kelompok pembangun)
@@ -19,9 +19,9 @@ Pembagian mengikuti rubrik: arsitektur & desain (20%), justifikasi protokol (10%
 
 | Anggota | Tanggung jawab | Komponen rubrik |
 |---|---|---|
-| **Jap Robertus** (30%) | Ketua teknis. Rancangan arsitektur microservices dan diagram. booking-service Java (seat locking per segmen, `BEGIN IMMEDIATE`, TTL lock, outbox, SSE kursi). API Gateway (routing, validasi skema, rate limit, load balancing booking-a/booking-b). Integrasi seluruh service, deployment Railway dan volume data. Koordinator respons bug report dari Kelompok B | Arsitektur, implementasi, respons bug |
+| **Jap Robertus** (25%) | Ketua teknis. Rancangan arsitektur microservices dan diagram. booking-service Java (seat locking per segmen, `BEGIN IMMEDIATE`, TTL lock, outbox, SSE kursi). API Gateway (routing, validasi skema, rate limit, load balancing booking-a/booking-b). Integrasi seluruh service, deployment Railway dan volume data. Koordinator respons bug report dari Kelompok B | Arsitektur, implementasi, respons bug |
 | **Daniel** (24%) | auth-service: OAuth2 Authorization Code + PKCE, JWT RS256, refresh token berotasi, Client Credentials, API key partner. mTLS antar service dan pembuatan sertifikat. Message broker (topik, lease, retry, DLQ) dan service registry (heartbeat, discovery). Rancangan keamanan (`01-rancangan-keamanan.md`) | Keamanan, implementasi |
-| **Berliana** (16%) | catalog-service dan GraphQL (skema, resolver, batas kedalaman/kompleksitas query). `schema.graphql` dan `graphql-examples.md`. Justifikasi pilihan protokol (`02-justifikasi-protokol.md`) dan bagian 4.3 laporan | Justifikasi protokol, dokumentasi |
+| **Berliana** (21%) | catalog-service dan GraphQL (skema, resolver, batas kedalaman/kompleksitas query). `schema.graphql` dan `graphql-examples.md`. Justifikasi pilihan protokol (`02-justifikasi-protokol.md`) dan bagian 4.3 laporan | Justifikasi protokol, dokumentasi |
 | **Calvin** (15%) | payment-service: QRIS simulasi, webhook bertanda tangan HMAC, unggah bukti transfer, refund. notification-service: konsumen event, notifikasi, audit log. Unit test JUnit untuk aturan tarif dan refund | Implementasi, keamanan |
 | **Evander** (15%) | Aplikasi web (SPA) dan support-service (FAQ + chat AI). Spesifikasi OpenAPI dan Swagger UI, README, daftar environment variable, koleksi Postman beserta environment template untuk penguji | Dokumentasi API |
 
@@ -31,11 +31,11 @@ Pembagian mengikuti rubrik: test plan (20%), test case design (25%), eksekusi pe
 
 | Anggota | Tanggung jawab | Komponen rubrik |
 |---|---|---|
-| **Berliana** (23,2%) | Koordinator pengujian. Menyusun test plan (ruang lingkup, strategi fungsional/performa/keamanan, jadwal, kriteria masuk-keluar, risiko). Test case design EP, BVA, decision table, state transition. Penanggung jawab bab 5 laporan dan komunikasi dengan Kelompok E | Test plan, test case design |
-| **Calvin** (20,7%) | Pengujian keamanan (OWASP API Top 10: autentikasi, otorisasi BOLA/BFLA, rate limit, injeksi). Penulisan bug report (langkah reproduksi, bukti, severity, prioritas, saran perbaikan) | Eksekusi, bug report |
-| **Jap Robertus** (18,7%) | Pengujian performa dan beban (k6), skenario konkurensi. Penyiapan tooling (Postman/Newman, k6) dan otomasi | Eksekusi pengujian |
-| **Daniel** (18,7%) | Pengujian fungsional API lewat Postman/Newman dan PyTest (jalur sukses dan negatif). Retest dan verifikasi perbaikan dari Kelompok E | Eksekusi, retest |
-| **Evander** (18,7%) | Pengujian fungsional ujung ke ujung dari sisi antarmuka. Pengumpulan bukti (tangkapan layar, log), rekap hasil, dan bagian 6.2 laporan | Eksekusi, laporan |
+| **Berliana** (24%) | Koordinator pengujian. Menyusun test plan (ruang lingkup, strategi fungsional/performa/keamanan, jadwal, kriteria masuk-keluar, risiko). Test case design EP, BVA, decision table, state transition. Penanggung jawab bab 5 laporan dan komunikasi dengan Kelompok E | Test plan, test case design |
+| **Calvin** (22%) | Pengujian keamanan (OWASP API Top 10: autentikasi, otorisasi BOLA/BFLA, rate limit, injeksi). Penulisan bug report (langkah reproduksi, bukti, severity, prioritas, saran perbaikan) | Eksekusi, bug report |
+| **Jap Robertus** (20%) | Pengujian performa dan beban (k6), skenario konkurensi. Penyiapan tooling (Postman/Newman, k6) dan otomasi | Eksekusi pengujian |
+| **Daniel** (18%) | Pengujian fungsional API lewat Postman/Newman dan PyTest (jalur sukses dan negatif). Retest dan verifikasi perbaikan dari Kelompok E | Eksekusi, retest |
+| **Evander** (16%) | Pengujian fungsional ujung ke ujung dari sisi antarmuka. Pengumpulan bukti (tangkapan layar, log), rekap hasil, dan bagian 6.2 laporan | Eksekusi, laporan |
 
 ## Timeline minggu 8 sampai UAS
 
