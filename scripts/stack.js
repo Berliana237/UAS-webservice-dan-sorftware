@@ -44,7 +44,9 @@ async function waitForInstances(base, want, timeoutMs) {
         const seen = new Set();
         for (let i = 0; i < 6; i++) { const x = await fetch(`${base}/api/bookings/instance`); if (x.status === 200) seen.add((await x.json()).instance); }
         const st = await fetch(`${base}/api/stations`);
-        if (seen.size >= want && st.status === 200) return;
+        // auth baru terdaftar setelah semua akun seed dibuat, jadi login tidak gagal karena akun belum ada.
+        const au = await fetch(`${base}/.well-known/openid-configuration`);
+        if (seen.size >= want && st.status === 200 && au.status === 200) return;
       }
     } catch { /* belum siap */ }
     await new Promise((r) => setTimeout(r, 400));

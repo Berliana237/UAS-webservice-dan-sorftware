@@ -245,7 +245,8 @@ async function seedUsers() {
   }
 }
 
-function seed() { seedClients(); seedUsers(); }
+/** Mengembalikan promise: selesai setelah semua akun seed dibuat (dipakai agar auth baru mendaftar ke registry setelah siap). */
+function seed() { seedClients(); return seedUsers(); }
 
 module.exports = {
   seed, publicUser, findUserByEmail, findUserById, createUser, verifyPassword, dummyHash, issueRefresh,

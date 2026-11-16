@@ -25,7 +25,8 @@ const REQUEST_TTL_MS = 600000;
 const MAX_FAILED = 5;
 const LOCK_MS = 60000;
 
-store.seed();
+// Akun seed (admin, 40 masinis, akun penguji, akun beban) dibuat dulu; auth baru mendaftar ke registry setelah selesai.
+const seeded = store.seed().catch((e) => log.error('seed akun gagal', { err: e.message }));
 
 /* ---------- Metadata ---------- */
 app.get('/.well-known/jwks.json', (_req, res) => res.json(jwks()));
@@ -371,4 +372,4 @@ app.post('/internal/api-keys/verify', mtls.requireCN('gateway'), (req, res) => {
 
 finish(app, log);
 mtls.createServer('auth', app, config.ports.auth, log);
-registry.register('auth', config.urls.auth, { role: 'authorization-server' });
+seeded.then(() => registry.register('auth', config.urls.auth, { role: 'authorization-server' }));

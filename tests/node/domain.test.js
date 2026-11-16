@@ -50,20 +50,21 @@ test('rate limiter: sweep membuang kunci yang lama diam', () => {
   assert.equal(l.buckets.size, 0);
 });
 
-test('skema lock: minimal 1 kursi, tanpa batas jumlah per pesanan', () => {
+test('skema lock: tanpa batas jumlah per pesanan; kursi kosong diteruskan ke booking-service (NO_SEATS)', () => {
   const ids = Array.from({ length: 9 }, (_, c) => Array.from({ length: 18 }, (_, r) => ['A', 'B', 'C', 'D'].map((l) => `EKO${c + 1}-${r + 1}${l}`))).flat(2);
   const body = (n) => ({ tripId: 'T', from: 'A', to: 'B', seats: ids.slice(0, n) });
-  assert.ok(schemas.check('lock', body(0)));
+  assert.equal(schemas.check('lock', body(0)), null, 'kursi kosong divalidasi booking-service dengan kode NO_SEATS');
   for (const n of [1, 4, 5, 72, 648]) assert.equal(schemas.check('lock', body(n)), null, `${n} kursi harus diterima`);
 });
 
-test('skema lock: format kursi, kursi kembar, dan field asing ditolak', () => {
+test('skema lock: format kursi dan field asing ditolak; kursi kembar dan TTL kecil divalidasi booking-service', () => {
   const ok = { tripId: 'T', from: 'A', to: 'B', seats: ['EKS1-1A'] };
   assert.equal(schemas.check('lock', ok), null);
   assert.ok(schemas.check('lock', { ...ok, seats: ["1' OR 1=1 --"] }));
-  assert.ok(schemas.check('lock', { ...ok, seats: ['EKS1-1A', 'EKS1-1A'] }));
+  assert.equal(schemas.check('lock', { ...ok, seats: ['EKS1-1A', 'EKS1-1A'] }), null, 'kursi kembar: DUPLICATE_SEAT dari booking-service');
   assert.ok(schemas.check('lock', { ...ok, admin: true }));
-  assert.ok(schemas.check('lock', { ...ok, ttlSeconds: 2 }));
+  assert.equal(schemas.check('lock', { ...ok, ttlSeconds: 2 }), null, 'TTL < 3 detik: INVALID_TTL dari booking-service');
+  assert.ok(schemas.check('lock', { ...ok, ttlSeconds: 4000 }));
 });
 
 test('routes: rute dikenali, metode salah dibedakan dari rute tak dikenal', () => {

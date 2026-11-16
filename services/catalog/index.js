@@ -333,7 +333,10 @@ async function buildSeatMap(tripId, from, to) {
 }
 
 function searchTrips(from, to, date, train) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) throw new ApiError(422, 'INVALID_DATE', 'Format tanggal harus yyyy-mm-dd.');
+  // Format dan tanggal kalender harus benar (mis. 2026-13-45 atau 2026-02-30 ditolak).
+  const dt = new Date(`${date}T00:00:00Z`);
+  const okDate = /^\d{4}-\d{2}-\d{2}$/.test(String(date)) && !Number.isNaN(dt.getTime()) && dt.toISOString().slice(0, 10) === String(date);
+  if (!okDate) throw new ApiError(422, 'INVALID_DATE', 'Format tanggal harus yyyy-mm-dd dan tanggalnya harus ada di kalender.');
   if (from === to) throw new ApiError(422, 'INVALID_SEGMENT', 'Stasiun asal dan tujuan tidak boleh sama.');
   const now = Date.now();
   const filter = train || null;
