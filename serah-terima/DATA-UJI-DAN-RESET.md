@@ -20,7 +20,7 @@ Reset menghapus semua data milik akun uji: pesanan, penumpang, kursi yang ditaha
 
 ### Cara 1: lewat Swagger (paling mudah)
 
-1. Buka https://rangkai-production.up.railway.app/docs, klik **Authorize**, masuk sebagai `admin@penguji.rangkai`.
+1. Buka https://rangkai-production.up.railway.app/docs (lokal: http://localhost:8080/docs), klik **Authorize**, masuk sebagai `admin@penguji.rangkai`.
 2. Buka `POST /api/admin/test-data/reset` (tag Admin) > **Try it out**.
 3. Isi `dryRun` = `true` lalu **Execute** untuk melihat jumlah data yang akan dihapus (tidak menghapus).
 4. Kosongkan `dryRun` (atau `false`) lalu **Execute** untuk benar-benar mereset. Jawaban `200` berisi ringkasan, misalnya `"bookings": 10, "locks": 32`.
@@ -29,6 +29,7 @@ Reset menghapus semua data milik akun uji: pesanan, penumpang, kursi yang ditaha
 
 ```
 POST https://rangkai-production.up.railway.app/api/admin/test-data/reset?dryRun=true
+(lokal: POST http://localhost:8080/api/admin/test-data/reset?dryRun=true)
 Authorization: Bearer <access token admin@penguji.rangkai>
 ```
 

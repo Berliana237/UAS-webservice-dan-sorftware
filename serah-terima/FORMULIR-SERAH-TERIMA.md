@@ -7,7 +7,7 @@ Simpan formulir yang sudah diisi (foto atau salinan digital), lalu lampirkan ke 
 |---|---|
 | Kelompok pembangun / penguji | **A** / **B** |
 | Tag & hash commit | `v1.0-freeze` / `________________________` (salin dari GitHub Release atau `git rev-list -n 1 v1.0-freeze`) |
-| URL yang diuji | https://rangkai-production.up.railway.app |
+| URL yang diuji | https://rangkai-production.up.railway.app (lokal bila dipakai: http://localhost:8080) |
 
 | No | Pemeriksaan | Cara memeriksa (ringkas) | Hasil (centang) |
 |---|---|---|---|

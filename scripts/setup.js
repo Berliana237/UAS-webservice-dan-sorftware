@@ -24,7 +24,9 @@ function ensureEnv() {
     .replace('SVC_BOOKING_CLIENT_SECRET=<random-hex>', `SVC_BOOKING_CLIENT_SECRET=${hex()}`)
     .replace('PARTNER_DEMO_CLIENT_SECRET=<random-hex>', `PARTNER_DEMO_CLIENT_SECRET=${hex()}`)
     .replace('SEED_USER_PASSWORD=<password-demo>', 'SEED_USER_PASSWORD=Rangkai2026!')
-    .replace('TESTER_PASSWORD=<password-penguji>', `TESTER_PASSWORD=Uji-${hex(6)}`);
+    // Lingkungan lokal adalah lingkungan uji: akun penguji memakai kata sandi yang sama dengan deployment dan reset data uji aktif.
+    .replace('TESTER_PASSWORD=<password-penguji>', 'TESTER_PASSWORD=PengujiB-Rangkai26')
+    .replace('TEST_RESET_ENABLED=0', 'TEST_RESET_ENABLED=1');
   fs.writeFileSync(envFile, filled, { mode: 0o600 });
   return true;
 }
