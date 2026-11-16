@@ -127,6 +127,10 @@ test('email dan scope: least privilege', () => {
   assert.equal(rules.narrowScope('a c', ['a', 'b']), 'a');
   assert.equal(rules.narrowScope('', ['a', 'b']), 'a b');
   assert.equal(rules.narrowScope('z', ['a']), '');
+  // Dialog Authorize Swagger: centang "admin" saja tetap memberi seluruh izin admin; pelanggan yang meminta "admin" tidak naik hak.
+  assert.equal(rules.narrowScope('admin', ['admin', 'user:manage', 'system:read']), 'admin user:manage system:read');
+  assert.equal(rules.narrowScope('admin user:manage', ['customer', 'booking:read']), '');
+  assert.ok(!rules.narrowScope('admin', rules.scopesForRole('customer')).includes('admin'));
   assert.ok(rules.scopesForRole('customer').includes('booking:write'));
   assert.ok(!rules.scopesForRole('customer').includes('admin'));
   assert.deepEqual(rules.scopesForRole('hantu'), []);

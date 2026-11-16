@@ -106,7 +106,7 @@ app.post('/oauth/login', async (req, res) => {
   const client = store.findClient(ar.client_id);
   store.saveCode({
     hash: pii.sha256(code), clientId: ar.client_id, userId: user.id, redirectUri: ar.redirect_uri,
-    challenge: ar.code_challenge, scope: narrowScope(ar.scope, scopesForRole(user.role).concat(JSON.parse(client.scopes))), expiresAt: Date.now() + CODE_TTL_MS,
+    challenge: ar.code_challenge, scope: narrowScope(ar.scope, scopesForRole(user.role).concat(JSON.parse(client.scopes))) || scopesForRole(user.role).join(' '), expiresAt: Date.now() + CODE_TTL_MS,
   });
   store.deleteAuthRequest(ar.id);
   audit('login.success', { actor: user.id, ip: req.headers['x-forwarded-for'] });

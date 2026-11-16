@@ -53,6 +53,8 @@ function narrowScope(requested, allowed) {
   const set = [...new Set(allowed)];
   if (!requested || !String(requested).trim()) return set.join(' ');
   const want = String(requested).split(/\s+/);
+  // Meminta nama peran sendiri (mis. "admin" dicentang di dialog Authorize Swagger) berarti meminta seluruh izin peran itu.
+  if (want.some((w) => ROLES.includes(w) && set.includes(w))) return set.join(' ');
   return set.filter((s) => want.includes(s)).join(' ');
 }
 
