@@ -23,7 +23,8 @@ function ensureEnv() {
     .replace('SVC_PAYMENT_CLIENT_SECRET=<random-hex>', `SVC_PAYMENT_CLIENT_SECRET=${hex()}`)
     .replace('SVC_BOOKING_CLIENT_SECRET=<random-hex>', `SVC_BOOKING_CLIENT_SECRET=${hex()}`)
     .replace('PARTNER_DEMO_CLIENT_SECRET=<random-hex>', `PARTNER_DEMO_CLIENT_SECRET=${hex()}`)
-    .replace('SEED_USER_PASSWORD=<password-demo>', 'SEED_USER_PASSWORD=Rangkai2026!');
+    .replace('SEED_USER_PASSWORD=<password-demo>', 'SEED_USER_PASSWORD=Rangkai2026!')
+    .replace('TESTER_PASSWORD=<password-penguji>', `TESTER_PASSWORD=Uji-${hex(6)}`);
   fs.writeFileSync(envFile, filled, { mode: 0o600 });
   return true;
 }

@@ -3,7 +3,7 @@
  * Dasbor, Data Operasional (kereta, rute, tarif, jam operasi, masinis, stasiun, diskon lansia), Pengguna,
  * Armada dan riwayat perjalanan, Verifikasi Transfer, dan Sistem (registry, antrian, audit, API key).
  */
-import { $, $$, api, esc, rupiah, timeOf, dateNum, dayName, dateTime, ago, toast, confirmDialog, go, currentUser, wibToday, showFieldErrors, clearFieldErrors, protectedBlobUrl, debounce, initials } from '../core.js';
+import { $, $$, api, esc, rupiah, timeOf, dateNum, dayName, dateTime, ago, toast, confirmDialog, go, currentUser, wibToday, showFieldErrors, clearFieldErrors, protectedBlobUrl, openProof, debounce, initials } from '../core.js';
 import { Kiko } from '../kiko.js';
 import { icon } from '../ui.js';
 import { pill, PAYMENT_STATUS, METHOD } from './pay-kit.js';
@@ -505,16 +505,16 @@ async function transfers(box) {
     }).join('')}</div>` : empty(status === 'SUBMITTED' ? 'Tidak ada bukti yang menunggu. Semua sudah diperiksa.' : 'Belum ada data.');
     // Muat gambar mini bukti transfer memakai token.
     $$('.tx-thumb', box).forEach(async (t) => {
-      if (t.dataset.mime === 'application/pdf') return;
-      try { const { url } = await protectedBlobUrl(`/api/payments/proofs/${t.dataset.view}/file`); t.innerHTML = `<img src="${url}" alt="Bukti transfer">`; } catch { t.innerHTML = '<span>Gagal</span>'; }
+      try {
+        const { url, type } = await protectedBlobUrl(`/api/payments/proofs/${t.dataset.view}/file`);
+        // PDF ditampilkan halaman pertamanya (tanpa toolbar), gambar ditampilkan langsung.
+        t.innerHTML = type === 'application/pdf' ? `<iframe class="tx-pdf" src="${url}#toolbar=0&navpanes=0&view=FitH" title="Pratinjau bukti PDF" tabindex="-1"></iframe>` : `<img src="${url}" alt="Bukti transfer">`;
+      } catch { t.innerHTML = '<span>Gagal memuat</span>'; }
     });
   };
   const view = async (pid, mime) => {
     try {
-      const { url } = await protectedBlobUrl(`/api/payments/proofs/${pid}/file`);
-      if (mime === 'application/pdf') { window.open(url, '_blank', 'noopener'); return; }
-      const s = sheet('Bukti transfer', `<img class="proof-full" src="${url}" alt="Bukti transfer">`, { wide: true });
-      s.el.addEventListener('click', () => { if (!s.el.isConnected) URL.revokeObjectURL(url); });
+      await openProof(`/api/payments/proofs/${pid}/file`);
     } catch (e) { toast(e.message, 'err'); }
   };
   const decide = async (pid, decision) => {

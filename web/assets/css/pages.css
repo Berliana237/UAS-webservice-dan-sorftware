@@ -457,3 +457,10 @@ button.bp-qr:focus-visible{outline:2px solid var(--brass-hi);outline-offset:3px}
   body.print-tickets .bp-list *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 .bp-codes .bp-meta dd.mono:not(.bp-big){white-space:nowrap}
+
+/* ---------- Penampil bukti transfer (gambar/PDF) ---------- */
+.proof-box{display:grid;gap:12px;width:min(900px,100%);max-height:calc(100dvh - 32px);padding:14px;border-radius:14px;background:var(--night);border:1px solid var(--line)}
+.proof-box .proof-full{max-width:100%;max-height:calc(100dvh - 130px);margin:0 auto;object-fit:contain;border-radius:8px;background:#fff}
+.proof-pdf{width:100%;height:calc(100dvh - 130px);border:0;border-radius:8px;background:#fff}
+.tx-thumb img,.tx-thumb .tx-pdf{width:100%;height:100%;object-fit:cover;border:0;border-radius:inherit;pointer-events:none;background:#fff}
+.drop-prev .tx-pdf{width:84px;height:104px;border:0;border-radius:6px;background:#fff;pointer-events:none}

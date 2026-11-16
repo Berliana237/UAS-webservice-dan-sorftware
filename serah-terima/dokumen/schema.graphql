@@ -1,0 +1,147 @@
+"""
+Skema GraphQL Rangkai. Dipakai untuk data yang bentuknya bervariasi per konsumen:
+daftar kereta, pencarian jadwal, dan peta kursi per segmen. Contoh query ada di docs/graphql-examples.md.
+"""
+type Query {
+  "Daftar stasiun aktif."
+  stations: [Station!]!
+  "Kereta yang sedang beroperasi (kereta nonaktif tidak tampil)."
+  trains: [Train!]!
+  "Cari perjalanan yang melewati stasiun asal lalu tujuan pada tanggal tertentu. train bersifat opsional."
+  searchTrips(from: String!, to: String!, date: String!, train: ID): [TripOption!]!
+  "Detail satu perjalanan."
+  trip(id: ID!): Trip
+  "Peta kursi untuk ruas from sampai to. Status kursi dihitung per segmen secara real-time."
+  seatMap(tripId: ID!, from: String!, to: String!): SeatMap!
+  "Keberangkatan terdekat dari sekarang, untuk papan keberangkatan."
+  upcomingDepartures(limit: Int = 8): [Departure!]!
+  "Kebijakan tarif yang berlaku untuk semua kereta."
+  pricingPolicy: PricingPolicy!
+}
+
+type Mutation {
+  "Membuat perjalanan tambahan. Scope: schedule:write."
+  createTrip(input: CreateTripInput!): Trip!
+  "Mengubah status perjalanan (DELAYED atau CANCELLED). Scope: schedule:write."
+  updateTripStatus(id: ID!, status: TripStatus!, delayMinutes: Int): Trip!
+}
+
+enum TripStatus { SCHEDULED DELAYED CANCELLED }
+enum TripPhase { UPCOMING ON_TRIP COMPLETED }
+enum SeatClass { EKONOMI EKSEKUTIF LUXURY }
+enum SeatStatus { AVAILABLE LOCKED BOOKED }
+
+type Station { code: String!, name: String!, city: String! }
+
+type PricingPolicy { seniorDiscountPercent: Int!, infantMaxAge: Int!, childMaxAge: Int!, seniorMinAge: Int! }
+
+type RouteStop { seq: Int!, station: Station!, minuteOffset: Int!, km: Int! }
+
+type Fare { seatClass: SeatClass!, adult: Int! }
+
+type Train {
+  id: ID!
+  number: String!
+  name: String!
+  classes: [SeatClass!]!
+  coaches: [Coach!]!
+  "Rute arah A. Arah B adalah kebalikannya."
+  route: [RouteStop!]!
+  origin: Station!
+  destination: Station!
+  departures: [String!]!
+}
+
+type Stop {
+  seq: Int!
+  station: Station!
+  arriveAt: String!
+  departAt: String!
+  km: Int!
+}
+
+type Trip {
+  id: ID!
+  trainId: ID!
+  trainNumber: String!
+  trainName: String!
+  direction: String!
+  serviceDate: String!
+  departureAt: String!
+  status: TripStatus!
+  phase: TripPhase!
+  delayMinutes: Int!
+  masinisName: String
+  stops: [Stop!]!
+  coaches: [Coach!]!
+  "Daftar ruas antar stasiun berurutan. Satu kursi diklaim per ruas."
+  segments: [Segment!]!
+}
+
+type Segment { index: Int!, from: Station!, to: Station!, km: Int! }
+
+"""
+Gerbong. rowFacing berisi F (menghadap ke depan kereta) atau B (membelakangi) untuk tiap baris.
+Pasangan F lalu B di tengah gerbong adalah kursi yang saling berhadapan.
+"""
+type Coach { code: String!, label: String!, seatClass: SeatClass!, rows: Int!, letters: [String!]!, aisleAfter: Int!, rowFacing: [String!]! }
+
+type TripOption {
+  trip: Trip!
+  from: Stop!
+  to: Stop!
+  durationMinutes: Int!
+  km: Int!
+  stopsBetween: Int!
+  fares: [Fare!]!
+  "Jumlah kursi yang masih kosong pada ruas yang dicari."
+  availableSeats: Int!
+  totalSeats: Int!
+}
+
+type SeatSegment { index: Int!, status: SeatStatus! }
+
+type Seat {
+  id: ID!
+  coach: String!
+  row: Int!
+  letter: String!
+  seatClass: SeatClass!
+  "F atau B, arah kursi pada baris ini."
+  facing: String!
+  "Status untuk ruas yang diminta. BOOKED mengalahkan LOCKED."
+  status: SeatStatus!
+  "Status tiap ruas pada seluruh rute, untuk menampilkan kursi yang terpakai sebagian."
+  segments: [SeatSegment!]!
+}
+
+type SeatMapCoach { coach: Coach!, adultFare: Int!, available: Int!, seats: [Seat!]! }
+
+type SeatMap {
+  tripId: ID!
+  fromIndex: Int!
+  toIndex: Int!
+  km: Int!
+  available: Int!
+  total: Int!
+  seniorDiscountPercent: Int!
+  coaches: [SeatMapCoach!]!
+  segments: [Segment!]!
+}
+
+type Departure {
+  tripId: ID!
+  trainName: String!
+  fromName: String!
+  toName: String!
+  departureAt: String!
+  status: TripStatus!
+  delayMinutes: Int!
+}
+
+input CreateTripInput {
+  trainId: ID!
+  direction: String!
+  serviceDate: String!
+  departureTime: String!
+}

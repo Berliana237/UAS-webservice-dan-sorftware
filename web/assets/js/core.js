@@ -79,7 +79,27 @@ export async function protectedBlobUrl(path) {
   if (session.token && session.exp - Date.now() < 15000) await refresh();
   const r = await fetch(path, { headers: session.token ? { authorization: `Bearer ${session.token}` } : {}, credentials: 'same-origin' });
   if (!r.ok) throw new ApiError(r.status, 'FILE_ERROR', 'Berkas tidak bisa dibuka.');
-  return { url: URL.createObjectURL(await r.blob()), type: r.headers.get('content-type') || '' };
+  const type = (r.headers.get('content-type') || '').split(';')[0];
+  // Blob diberi tipe asli agar PDF bisa ditampilkan di iframe dan gambar di <img>.
+  return { url: URL.createObjectURL(new Blob([await r.arrayBuffer()], { type })), type };
+}
+
+/** Penampil bukti transfer (gambar JPG/PNG/WEBP atau PDF) di dalam halaman. */
+export async function openProof(path, title = 'Bukti transfer') {
+  const { url, type } = await protectedBlobUrl(path);
+  const isPdf = type === 'application/pdf';
+  const ov = document.createElement('div');
+  ov.className = 'bp-modal proof-modal';
+  ov.setAttribute('role', 'dialog');
+  ov.setAttribute('aria-modal', 'true');
+  ov.setAttribute('aria-label', title);
+  ov.innerHTML = `<div class="proof-box">${isPdf ? `<iframe class="proof-pdf" src="${url}" title="${title}"></iframe>` : `<img class="proof-full" src="${url}" alt="${title}">`}
+    <div class="row between"><a class="btn ghost sm" href="${url}" download="bukti-transfer${isPdf ? '.pdf' : ''}">Unduh</a><button type="button" class="btn gold sm" data-close>Tutup</button></div></div>`;
+  document.body.append(ov);
+  const close = () => { ov.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+  ov.addEventListener('click', (e) => { if (e.target === ov || e.target.closest('[data-close]')) close(); });
+  ov.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  ov.querySelector('[data-close]').focus();
 }
 
 export function toast(message, kind = 'info') {

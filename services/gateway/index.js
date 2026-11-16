@@ -10,6 +10,7 @@ const path = require('node:path');
 const http = require('node:http');
 const https = require('node:https');
 const crypto = require('node:crypto');
+const { execFile } = require('node:child_process');
 const config = require('../shared/config');
 const { logger, maskString } = require('../shared/log');
 const mtls = require('../shared/mtls');
@@ -66,7 +67,7 @@ const SECURITY_HEADERS = {
   'Referrer-Policy': 'no-referrer',
   'Permissions-Policy': 'geolocation=(), camera=(), microphone=()',
   'Cross-Origin-Opener-Policy': 'same-origin',
-  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; frame-src 'self' blob:; object-src 'none'; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
 };
 const SWAGGER_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'";
 
@@ -204,6 +205,23 @@ async function gatewayRoutes(req, res, pathname, user) {
     if (!user) { sendError(req, res, 401, 'UNAUTHENTICATED', 'Token akses diperlukan.'); return true; }
     if (!hasScopes(user, ['system:read'])) { sendError(req, res, 403, 'INSUFFICIENT_SCOPE', 'Hak akses tidak mencukupi.', { required: ['system:read'] }); return true; }
     sendJson(res, 200, { gateway: { instanceId: 'gateway', status: 'UP' }, services: await systemStatus() });
+    return true;
+  }
+  // Reset data uji kelompok penguji (lihat scripts/reset-test-data.js). Hanya aktif di lingkungan uji (TEST_RESET_ENABLED=1)
+  // dan hanya untuk admin. Dijalankan di container yang sama dengan semua database (deployment satu container).
+  if (pathname === '/api/admin/test-data/reset' && req.method === 'POST') {
+    if (!user) { sendError(req, res, 401, 'UNAUTHENTICATED', 'Token akses diperlukan.'); return true; }
+    if (!hasScopes(user, ['user:manage'])) { sendError(req, res, 403, 'INSUFFICIENT_SCOPE', 'Hak akses tidak mencukupi.', { required: ['user:manage'] }); return true; }
+    if (process.env.TEST_RESET_ENABLED !== '1') { sendError(req, res, 404, 'FEATURE_DISABLED', 'Reset data uji tidak aktif di lingkungan ini.'); return true; }
+    const dry = new URL(req.url, 'http://x').searchParams.get('dryRun') === 'true';
+    const args = [path.join(config.ROOT, 'scripts', 'reset-test-data.js'), '--live', '--json', ...(dry ? ['--dry-run'] : [])];
+    execFile(process.execPath, args, { timeout: 60000, env: process.env }, (err, stdout, stderr) => {
+      if (err) { log.error('reset data uji gagal', { err: String(stderr || err.message).slice(0, 300) }); return sendError(req, res, 500, 'RESET_FAILED', 'Reset data uji gagal. Hubungi penanggung jawab teknis.'); }
+      let out = {};
+      try { out = JSON.parse(String(stdout).trim().split('\n').pop()); } catch { /* keluaran tidak terbaca */ }
+      log.info('reset data uji', { by: user.sub, dry, ...out });
+      sendJson(res, 200, { reset: !dry, ...out });
+    });
     return true;
   }
   return false;

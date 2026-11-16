@@ -170,6 +170,14 @@ function seedClients() {
   st.upsertClient.run('partner-demo', 'Partner Demo', 'confidential', conf(process.env.PARTNER_DEMO_CLIENT_SECRET), '[]', JSON.stringify(['partner:read']));
 }
 
+/** Akun khusus kelompok penguji. Domain @penguji.rangkai dipakai skrip reset untuk mengenali data uji. */
+const TESTER_ACCOUNTS = [
+  { name: 'Penguji Pelanggan Satu', email: 'pelanggan1@penguji.rangkai', role: 'customer' },
+  { name: 'Penguji Pelanggan Dua', email: 'pelanggan2@penguji.rangkai', role: 'customer' },
+  { name: 'Penguji Masinis', email: 'masinis@penguji.rangkai', role: 'masinis', phone: '081399990001', birthDate: '1991-05-17' },
+  { name: 'Penguji Admin', email: 'admin@penguji.rangkai', role: 'admin' },
+];
+
 async function seedUsers() {
   const password = process.env.SEED_USER_PASSWORD;
   if (!password) return;
@@ -225,6 +233,12 @@ async function seedUsers() {
     { name: 'Arga Admin', email: 'admin@rangkai.test', role: 'admin' },
   ];
   for (const u of demo) if (!findUserByEmail(u.email)) await createUser({ ...u, password });
+  // Kredensial uji khusus kelompok penguji (terpisah dari akun pembangun). Kata sandi dari TESTER_PASSWORD.
+  // Data milik akun ini bisa dikembalikan ke kondisi awal dengan scripts/reset-test-data.js.
+  const testerPassword = process.env.TESTER_PASSWORD;
+  if (testerPassword) {
+    for (const u of TESTER_ACCOUNTS) if (!findUserByEmail(u.email)) await createUser({ ...u, password: testerPassword });
+  }
   for (let i = 0; i < config.loadUsers; i++) {
     const email = `load${i}@rangkai.test`;
     if (!findUserByEmail(email)) await createUser({ name: `Load ${i}`, email, password, role: 'customer' });

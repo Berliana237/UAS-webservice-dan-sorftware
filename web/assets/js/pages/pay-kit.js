@@ -2,7 +2,7 @@
  * Komponen pembayaran yang dipakai halaman Bayar dan Perjalanan saya:
  * label status, panel transfer virtual account (nomor VA, unggah bukti, alasan penolakan, unggah ulang).
  */
-import { $, api, esc, rupiah, fileToBase64, dateTime, toast, protectedBlobUrl } from '../core.js';
+import { $, api, esc, rupiah, fileToBase64, dateTime, toast, protectedBlobUrl, openProof } from '../core.js';
 import { Kiko } from '../kiko.js';
 import { Sound } from '../sound.js';
 import { icon } from '../ui.js';
@@ -60,9 +60,7 @@ export function transferPanel(box, payment, { amount, onChange, compact = false 
   });
   box.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', async () => {
     try {
-      const { url } = await protectedBlobUrl(`/api/payments/proofs/${b.dataset.view}/file`);
-      window.open(url, '_blank', 'noopener');
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      await openProof(`/api/payments/proofs/${b.dataset.view}/file`);
     } catch (e) { toast(e.message, 'err'); }
   }));
   if (!canUpload) return () => {};
@@ -78,8 +76,8 @@ export function transferPanel(box, payment, { amount, onChange, compact = false 
     if (f.size > MAX) { setErr(`Ukuran ${(f.size / 1048576).toFixed(1)} MB. Maksimal 3 MB.`); return; }
     file = f;
     if (preview) URL.revokeObjectURL(preview);
-    preview = f.type.startsWith('image/') ? URL.createObjectURL(f) : null;
-    $('#prev', box).innerHTML = `<div class="drop-prev">${preview ? `<img src="${preview}" alt="Pratinjau bukti">` : '<span class="doc">PDF</span>'}<span><b>${esc(f.name)}</b><small>${(f.size / 1024).toFixed(0)} KB</small></span><button class="btn link" type="button" id="rm">Ganti</button></div>`;
+    preview = f.type.startsWith('image/') || f.type === 'application/pdf' ? URL.createObjectURL(f) : null;
+    $('#prev', box).innerHTML = `<div class="drop-prev">${preview ? (f.type === 'application/pdf' ? `<iframe class="tx-pdf" src="${preview}#toolbar=0&navpanes=0&view=FitH" title="Pratinjau bukti PDF"></iframe>` : `<img src="${preview}" alt="Pratinjau bukti">`) : '<span class="doc">PDF</span>'}<span><b>${esc(f.name)}</b><small>${(f.size / 1024).toFixed(0)} KB</small></span><button class="btn link" type="button" id="rm">Ganti</button></div>`;
     drop.hidden = true;
     $('#proof-send', box).disabled = false;
     $('#rm', box).addEventListener('click', () => { file = null; $('#prev', box).innerHTML = ''; drop.hidden = false; input.value = ''; $('#proof-send', box).disabled = true; });

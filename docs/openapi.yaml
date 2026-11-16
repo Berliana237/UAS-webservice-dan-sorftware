@@ -1219,6 +1219,23 @@ paths:
         '404': { description: Data tidak ditemukan, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Disimpan }
         '422': { $ref: '#/components/responses/Error' }
+  /api/admin/test-data/reset:
+    post:
+      tags: [Admin]
+      summary: Reset data uji kelompok penguji ke kondisi awal
+      description: |
+        Menghapus semua data milik akun berdomain `@penguji.rangkai` dan `@uji.rangkai`: pesanan, penumpang, kursi yang ditahan,
+        pembayaran, bukti transfer, notifikasi, dan sesi login. Empat akun penguji resmi tetap ada; akun uji lain dihapus.
+        Data demo (akun pembangun, jadwal, kereta, stasiun) tidak disentuh. Hanya aktif bila `TEST_RESET_ENABLED=1` (lingkungan uji).
+        Pakai `?dryRun=true` untuk melihat jumlah data yang akan dihapus tanpa menghapus.
+      security: [{ bearer: ['user:manage'] }, { bearerToken: [] }]
+      parameters: [{ name: dryRun, in: query, required: false, schema: { type: boolean, example: true } }]
+      responses:
+        '200': { description: 'Ringkasan: reset, keptTesterAccounts, deletedAccounts, bookings, locks, payments, proofs, notifications' }
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Fitur reset tidak aktif di lingkungan ini (FEATURE_DISABLED), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '500': { description: Reset gagal, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/admin/trains/{id}/coaches:
     put:
       tags: [Data Operasional]

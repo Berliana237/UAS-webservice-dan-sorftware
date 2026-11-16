@@ -14,6 +14,31 @@ Sistem reservasi kereta dengan **seat locking per segmen**: satu kursi bisa dipa
 
 Database SQLite tiap service tersimpan di volume persisten, sehingga data tidak hilang saat layanan dimulai ulang.
 
+## Serah-terima code freeze (untuk Kelompok B, penguji)
+
+Semua yang dibutuhkan penguji dikumpulkan di satu folder: **[`serah-terima/`](serah-terima/)**. Mulai dari [`serah-terima/README.md`](serah-terima/README.md) dan `serah-terima/PANDUAN-SERAH-TERIMA.pdf`.
+
+| Item | Nilai |
+|---|---|
+| Tag freeze | `v1.0-freeze` (hash commit ada di GitHub Release `v1.0-freeze`) |
+| Branch lingkungan uji | `codefreeze` (isi sama dengan `main` saat freeze ditambah paket serah-terima; pengembangan lanjutan di `main` tidak masuk lingkungan uji) |
+| Kredensial uji | [`serah-terima/KREDENSIAL-UJI.md`](serah-terima/KREDENSIAL-UJI.md): akun `@penguji.rangkai` dan API key penguji |
+| Data uji dan reset | [`serah-terima/DATA-UJI-DAN-RESET.md`](serah-terima/DATA-UJI-DAN-RESET.md), endpoint `POST /api/admin/test-data/reset` |
+| Smoke test | `node serah-terima/smoke-test.js --password "<kata sandi penguji>"` dan [`serah-terima/FORMULIR-SERAH-TERIMA.md`](serah-terima/FORMULIR-SERAH-TERIMA.md) |
+| Laporan bug | GitHub Issues dengan templat **Laporan bug (kelompok penguji)** |
+| Penanggung jawab teknis | Jap Robertus Kurniawan Setiabudi (NRP 5803024004), lewat GitHub Issues dan grup pasangan A-B |
+
+### Keterbatasan yang diketahui
+
+- **Layanan Railway tidak diatur untuk "tertidur" saat idle**, tetapi setiap deploy ulang membuat sistem mati sekitar 1 sampai 2 menit. Request saat itu bisa gagal 502; tunggu lalu ulangi. Pembangun memberi tahu penguji sebelum deploy ulang.
+- **Semua service berjalan dalam satu container.** mTLS tetap aktif, tetapi hanya melintasi jaringan dalam container. Demo mTLS lintas container memakai `docker-compose.yml` di lokal.
+- **Database SQLite per service.** Penulisan diserialkan, jadi uji beban tulis yang sangat berat akan mengantre (bukan error). Seat locking tetap atomik.
+- **Pembayaran adalah simulasi.** QRIS dan VA tidak memakai uang sungguhan; status lunas datang dari webhook bertanda tangan HMAC yang dikirim simulator. Tidak ada email/SMS; notifikasi hanya di dalam aplikasi.
+- **Chat AI Pusat Bantuan bergantung kuota Gemini.** Bila kuota habis atau lambat (lebih dari 12 detik), jawaban otomatis jatuh ke FAQ (`source: "faq"`). Ini perilaku yang disengaja.
+- **Rate limit aktif** (per menit): global 1200 per IP, login 10, daftar 20, token 120, kursi/pesanan 120 per pengguna, pembayaran 30, GraphQL 600, baca publik 600, chat bantuan 12. Jawaban `429` berarti batas tercapai, bukan bug. Untuk uji beban, API key penguji dibatasi 600 per menit, dan batas lain dilonggarkan sementara oleh pembangun lewat variabel `RATE_*_PER_MIN` sesuai jadwal yang disepakati.
+- **Jadwal hanya tersedia untuk hari ini sampai 30 hari ke depan** (zona WIB). Tanggal yang sudah lewat menghasilkan daftar kosong.
+- **Memilih kursi wajib login sebagai pelanggan.** Kursi ditahan 10 menit, lalu dilepas otomatis.
+
 ## Anggota Kelompok A
 
 | NRP | Nama | Web Service | Software Testing |

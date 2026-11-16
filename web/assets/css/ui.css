@@ -252,3 +252,9 @@ input.in[readonly]{color:var(--ivory-dim);background:transparent;border-style:da
 .spark div i{flex:1 1 0;min-height:3px;width:100%}
 .spark div .sp-gap{flex:1 1 0;display:block;width:100%}
 .spark div small{flex:0 0 auto}
+
+/* Revisi: jarak antar blok dasbor (banner, statistik, kartu) dan angka statistik selalu satu baris */
+.shell-head + .callout,.callout + .stats,.callout + .grid-2,.stats + .callout{margin-top:16px}
+.callout + .stats{margin-top:18px}
+.stat{container-type:inline-size}
+.stat b{white-space:nowrap;overflow-wrap:normal;font-size:clamp(1.05rem,13cqi,2rem)}

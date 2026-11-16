@@ -13,6 +13,8 @@
 | `SVC_BOOKING_CLIENT_SECRET` | `<random-hex>` | Client Credentials booking |
 | `PARTNER_DEMO_CLIENT_SECRET` | `<random-hex>` | Client Credentials partner demo |
 | `SEED_USER_PASSWORD` | `<password-demo>` | Kata sandi akun demo. Kosongkan untuk tidak membuat akun demo |
+| `TESTER_PASSWORD` | `<password-penguji>` | Kata sandi 4 akun khusus penguji (`pelanggan1@`, `pelanggan2@`, `masinis@`, `admin@penguji.rangkai`). Kosong = akun penguji tidak dibuat |
+| `TEST_RESET_ENABLED` | `0` | `1` mengaktifkan `POST /api/admin/test-data/reset` (reset data uji penguji). Hanya untuk lingkungan uji |
 
 ## Umum
 
