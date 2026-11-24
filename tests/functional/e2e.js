@@ -70,10 +70,24 @@ async function main() {
   r.check('F-20', 'Pelanggan tidak boleh check-in (403)', forbid.status === 403);
   const man = await c.call('GET', `/api/trips/${tripId}/manifest`, { token: admin.token });
   r.check('F-21', 'Manifest (admin) memasker NIK', man.json?.passengers?.[0]?.nikMasked?.startsWith('****') && !man.text.includes(c.NIK));
-  const ci = await c.call('POST', '/api/tickets/checkin', { token: masinis.token, body: { ticketCode: code } });
-  r.check('F-22', 'Check-in oleh masinis berhasil', ci.status === 200 && ci.json?.checkedIn === true, ci.text.slice(0, 100));
-  const ci2 = await c.call('POST', '/api/tickets/checkin', { token: masinis.token, body: { ticketCode: code } });
+  // Check-in hanya oleh masinis yang bertugas di perjalanan tiket (BUG-05). Tiket uji dibuat di perjalanan dinas masinis.
+  const duty = (await c.call('GET', '/api/masinis/trips', { token: masinis.token })).json.trips
+    .find((t) => t.status === 'SCHEDULED' && Date.parse(t.departureAt) > Date.now() + 3 * 3600000);
+  const dFrom = duty.segments[0].from.code;
+  const dTo = duty.segments[duty.segments.length - 1].to.code;
+  const dSeat = (await c.call('GET', `/api/trips/${duty.id}/seats?from=${dFrom}&to=${dTo}`)).json.coaches.flatMap((x) => x.seats).find((s) => s.status === 'AVAILABLE').id;
+  const dLock = await c.lockSeat(customer.token, duty.id, dFrom, dTo, [dSeat]);
+  const dBook = await c.createBooking(customer.token, dLock.json.id, [dSeat]);
+  const dCode = (await c.payBooking(customer.token, dBook.json.id)).booking.passengers[0].ticketCode;
+  const masinisLain = await c.login('masinis2@rangkai.test');
+  const wrong = await c.call('POST', '/api/tickets/checkin', { token: masinisLain.token, body: { ticketCode: dCode } });
+  r.check('F-22a', 'Masinis yang tidak bertugas ditolak check-in (403 NOT_YOUR_TRIP)', wrong.status === 403 && wrong.json?.error?.code === 'NOT_YOUR_TRIP', wrong.text.slice(0, 100));
+  const ci = await c.call('POST', '/api/tickets/checkin', { token: masinis.token, body: { ticketCode: dCode } });
+  r.check('F-22', 'Check-in oleh masinis yang bertugas berhasil', ci.status === 200 && ci.json?.checkedIn === true, ci.text.slice(0, 100));
+  const ci2 = await c.call('POST', '/api/tickets/checkin', { token: masinis.token, body: { ticketCode: dCode } });
   r.check('F-23', 'Tiket tidak bisa dipakai dua kali (409)', ci2.status === 409);
+  const ciAdmin = await c.call('POST', '/api/tickets/checkin', { token: admin.token, body: { ticketCode: code } });
+  r.check('F-23a', 'Admin tetap boleh check-in tiket perjalanan mana pun', ciAdmin.status === 200, ciAdmin.text.slice(0, 100));
 
   r.section('Pembatalan dan kedaluwarsa');
   const canTrip = await c.gajayanaTrip(5);

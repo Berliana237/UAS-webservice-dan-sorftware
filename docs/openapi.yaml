@@ -908,7 +908,8 @@ paths:
     post:
       tags: [Jadwal]
       summary: Endpoint GraphQL (protokol non-REST)
-      description: 'Query publik: stations, trains, searchTrips, trip, seatMap, upcomingDepartures, pricingPolicy. Mutation createTrip dan updateTripStatus butuh scope schedule:write. Kedalaman maksimal 8, maksimal 200 field. Contoh di docs/graphql-examples.md.'
+      security: [{ bearer: [] }, { bearerToken: [] }, {}]
+      description: 'Query publik: stations, trains, searchTrips, trip, seatMap, upcomingDepartures, pricingPolicy. Mutation createTrip dan updateTripStatus butuh scope schedule:write (token dikirim otomatis bila sudah Authorize; query publik tetap boleh tanpa token). Kedalaman maksimal 8, maksimal 200 field. Contoh di docs/graphql-examples.md.'
       requestBody:
         required: true
         content:

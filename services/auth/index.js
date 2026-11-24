@@ -237,6 +237,9 @@ app.patch('/api/auth/me', verifier.requireAuth(), (req, res) => {
   // PATCH bersifat sebagian: field yang tidak dikirim tetap memakai nilai lama. Kirim null untuk mengosongkan.
   const { name, phone, nik, birthDate } = store.publicUser(user);
   const { f, value } = profileFields({ name, phone, nik, birthDate, ...(req.body || {}) });
+  // Hanya field yang dikirim yang divalidasi, agar data lama (dari sebelum aturan diperketat) tidak memblokir perubahan field lain.
+  const sent = new Set(Object.keys(req.body || {}));
+  for (const k of Object.keys(f)) if (!sent.has(k)) delete f[k];
   if (Object.keys(f).length) throw invalid(f);
   audit('profile.updated', { actor: user.id, target: user.id });
   res.json({ user: store.publicUser(store.updateProfile(user.id, value)) });

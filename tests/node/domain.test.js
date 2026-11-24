@@ -253,3 +253,26 @@ test('path traversal: keluar dari folder dasar ditolak', () => {
   assert.ok(safeJoin(base, 'assets/app.js').startsWith(base));
   assert.ok(safeJoin(base, '../../etc/passwd').startsWith(base), 'dinormalisasi tetap di dalam folder');
 });
+
+/* ---------- Regresi hasil pengujian Kelompok B (BUG-01, BUG-02, BUG-04) ---------- */
+test('BUG-01 email: domain dengan label kosong atau titik ganda ditolak (EP)', () => {
+  for (const ok of ['customer@rangkai.test', 'pelanggan1@penguji.rangkai', 'a.b+c@mail.co.id', 'sinta.tester.b@example.test']) assert.equal(rules.validateEmail(ok), null, ok);
+  for (const bad of ['sinta.tester.b@..example', 'x@b..com', '.a@b.com', 'a.@b.com', 'a..b@c.com', 'a@-b.com', 'a b@c.com', 'a@b.c', 'a@@b.com']) assert.ok(rules.validateEmail(bad), bad);
+});
+
+test('BUG-02 nomor HP: 9 sampai 15 digit, tanda hubung saja ditolak (BVA)', () => {
+  for (const ok of ['', null, '081234567890', '0812-3456-7890', '+62 812 3456 7890', '081234567', '081234567890123']) assert.equal(rules.validatePhone(ok), null, String(ok));
+  for (const bad of ['0-------', '1--------', '08123456', '0812345678901234', 'abc', '0812-', '-0812345678']) assert.ok(rules.validatePhone(bad), bad);
+});
+
+test('BUG-04 FAQ cadangan: pertanyaan pembatalan/refund diarahkan ke FAQ pengembalian dana', () => {
+  const { searchFaq, stem } = require('../../services/support/assistant');
+  assert.equal(stem('membatalkan'), 'batal');
+  assert.equal(stem('kereta'), 'kereta');
+  const refund = 'Berapa pengembalian dana bila saya membatalkan?';
+  for (const q of ['Bagaimana cara membatalkan tiket?', 'Saya mau refund tiket', 'Bagaimana membatalkan pesanan?']) assert.equal(searchFaq(q, 10).q, refund, q);
+  assert.equal(searchFaq('Bagaimana cara memesan tiket?', 10).q, 'Bagaimana cara memesan tiket?');
+  assert.equal(searchFaq('Kereta saya dibatalkan, uang kembali?', 10).q, 'Bagaimana bila kereta dibatalkan atau terlambat?');
+  const { FAQ } = require('../../services/support/knowledge');
+  for (const q of FAQ.flatMap((c) => c.items.map((i) => i[0]))) assert.equal(searchFaq(q, 10).q, q, `FAQ sendiri: ${q}`);
+});

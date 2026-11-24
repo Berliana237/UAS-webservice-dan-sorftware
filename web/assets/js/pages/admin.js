@@ -90,7 +90,7 @@ async function dataOps(box) {
 
   /* ----- Kereta ----- */
   async function trains() {
-    const ops = $('#ops');
+    const ops = $('#ops'); ops.onclick = null; ops.onchange = null;
     ops.innerHTML = '<span class="skel" style="height:300px"></span>';
     const { trains: list } = await api('/api/admin/trains');
     ops.innerHTML = `<div class="row between" style="margin-bottom:14px"><p class="muted">${list.length} kereta · ${list.filter((t) => t.enabled).length} aktif</p><button class="btn gold sm" id="add-train">${icon.plus} Tambah kereta</button></div>
@@ -305,23 +305,25 @@ async function dataOps(box) {
       });
     };
     $('#add-st', ops).addEventListener('click', () => form(null));
-    ops.addEventListener('click', async (e) => {
+    // Dipasang lewat properti (bukan addEventListener) karena tab ini dirender ulang pada elemen yang sama;
+    // dengan addEventListener handler lama menumpuk dan memakai daftar stasiun yang sudah usang.
+    ops.onclick = async (e) => {
       const ed = e.target.closest('[data-ed]'); const del = e.target.closest('[data-del]');
       if (ed) form(stations.find((x) => x.code === ed.dataset.ed));
       if (del && await confirmDialog({ title: `Hapus stasiun ${del.dataset.del}?`, body: '<p>Stasiun dihapus permanen. Stasiun yang masih dipakai rute tidak bisa dihapus.</p>', confirm: 'Hapus', danger: true })) {
         try { await api(`/api/admin/stations/${del.dataset.del}`, { method: 'DELETE' }); toast('Stasiun dihapus.', 'ok'); stationsTab(); } catch (ex) { toast(errMsg(ex), 'err'); }
       }
-    });
-    ops.addEventListener('change', async (e) => {
+    };
+    ops.onchange = async (e) => {
       const c = e.target.closest('[data-act]');
       if (!c) return;
       try { await api(`/api/admin/stations/${c.dataset.act}`, { method: 'PATCH', body: { active: c.checked } }); toast(c.checked ? 'Stasiun diaktifkan.' : 'Stasiun dinonaktifkan dan tidak tampil di pencarian.', 'ok'); } catch (ex) { c.checked = !c.checked; toast(errMsg(ex), 'err'); }
-    });
+    };
   }
 
   /* ----- Pengaturan tarif ----- */
   async function settings() {
-    const ops = $('#ops');
+    const ops = $('#ops'); ops.onclick = null; ops.onchange = null;
     const { seniorDiscountPercent: v } = await api('/api/admin/settings');
     ops.innerHTML = `<form class="card stack narrow-card" id="setf" novalidate>
       <div class="card-head"><div><h2>Diskon lansia</h2><p>Berlaku untuk penumpang 60 tahun ke atas di semua kereta. Bayi, anak, dan dewasa bertarif normal.</p></div></div>
@@ -620,7 +622,7 @@ async function system(box) {
 /* =========================================================
  * Kerangka halaman
  * ========================================================= */
-const VIEWS = { '': dashboard, data: dataOps, pengguna: users, armada: fleet, transfer: transfers };
+const VIEWS = { '': dashboard, data: dataOps, pengguna: users, armada: fleet, transfer: transfers, sistem: system };
 
 export function render(main, { params }) {
   const section = params.section || '';

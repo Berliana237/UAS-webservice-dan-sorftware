@@ -31,7 +31,7 @@ route('.*', page('notfound'), { name: 'notfound', notFound: true });
 /* ---------- Navigasi per peran ---------- */
 function links() {
   const u = currentUser();
-  if (u?.role === 'admin') return [['/admin', 'Dasbor'], ['/admin/data', 'Data Operasional'], ['/admin/pengguna', 'Pengguna'], ['/admin/armada', 'Armada'], ['/admin/transfer', 'Verifikasi Transfer']];
+  if (u?.role === 'admin') return [['/admin', 'Dasbor'], ['/admin/data', 'Data Operasional'], ['/admin/pengguna', 'Pengguna'], ['/admin/armada', 'Armada'], ['/admin/transfer', 'Verifikasi Transfer'], ['/admin/sistem', 'Sistem']];
   if (u?.role === 'masinis') return [['/masinis', 'Dasbor'], ['/masinis/jadwal', 'Jadwal Dinas']];
   return [['/', 'Beranda'], ['/cari', 'Cari Tiket'], ...(u ? [['/perjalanan', 'Perjalanan Saya']] : []), ['/bantuan', 'Pusat Bantuan']];
 }

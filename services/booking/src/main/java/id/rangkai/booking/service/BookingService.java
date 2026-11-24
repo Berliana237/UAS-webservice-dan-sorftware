@@ -4,6 +4,7 @@ import id.rangkai.booking.domain.BookingStatus;
 import id.rangkai.booking.domain.DomainException;
 import id.rangkai.booking.domain.FareCalculator;
 import id.rangkai.booking.domain.NikValidator;
+import id.rangkai.booking.domain.PassengerName;
 import id.rangkai.booking.domain.PassengerType;
 import id.rangkai.booking.domain.RefundPolicy;
 import id.rangkai.booking.domain.SegmentRange;
@@ -71,6 +72,7 @@ public class BookingService {
             long amount = 0;
             List<Object[]> rows = new ArrayList<>();
             for (PassengerInput p : passengers) {
+                String passengerName = PassengerName.normalize(p.name());
                 PassengerType type = typeOf(p.age());
                 NikValidator.check(p.nik(), p.age());
                 if (p.nik() != null && !p.nik().isBlank() && !niks.add(p.nik())) {
@@ -81,7 +83,7 @@ public class BookingService {
                 long fare = FareCalculator.fare(rule.base(), rule.perKm(), km, type, trip.seniorDiscountPercent());
                 amount += fare;
                 rows.add(new Object[] {"pax_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16), id, p.seatId(), seatClass,
-                    crypto.encrypt(p.name().trim()), blank(p.nik()) ? null : crypto.encrypt(p.nik()), blank(p.phone()) ? null : crypto.encrypt(p.phone()), p.age(), type.name(), fare});
+                    crypto.encrypt(passengerName), blank(p.nik()) ? null : crypto.encrypt(p.nik()), blank(p.phone()) ? null : crypto.encrypt(p.phone()), p.age(), type.name(), fare});
             }
             var from = trip.stops().get(lock.range().from());
             var to = trip.stops().get(lock.range().to());
@@ -312,6 +314,12 @@ public class BookingService {
     }
 
     /* ---------- Check-in ---------- */
+    /** Perjalanan milik sebuah tiket, dipakai untuk memeriksa apakah masinis memang bertugas di perjalanan itu. */
+    public java.util.Optional<String> tripOfTicket(String ticketCode) {
+        return db.one("SELECT b.trip_id FROM passengers p JOIN bookings b ON b.id=p.booking_id WHERE p.ticket_code=?", ticketCode)
+            .map(r -> Db.str(r, "trip_id"));
+    }
+
     public Map<String, Object> checkIn(String ticketCode, String operatorId) {
         return db.run(() -> {
             var p = db.one("SELECT * FROM passengers WHERE ticket_code=?", ticketCode)

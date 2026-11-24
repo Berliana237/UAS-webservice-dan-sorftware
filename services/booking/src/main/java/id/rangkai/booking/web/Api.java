@@ -96,6 +96,14 @@ public final class Api {
             var u = ctx.user("checkin:write");
             String code = ctx.body().path("ticketCode").asText("");
             if (code.isBlank()) throw new DomainException(422, "VALIDATION_FAILED", "ticketCode wajib diisi.");
+            // Sama seperti manifest: masinis hanya boleh check-in penumpang pada perjalanan yang menjadi tugasnya. Admin boleh semua.
+            if (u.has("masinis") && !u.has("admin")) {
+                String tripId = bookings.tripOfTicket(code)
+                    .orElseThrow(() -> new DomainException(404, "TICKET_NOT_FOUND", "Tiket tidak ditemukan."));
+                if (!u.sub().equals(catalog.get(tripId).masinisId())) {
+                    throw new DomainException(403, "NOT_YOUR_TRIP", "Tiket ini bukan untuk perjalanan dinas Anda.");
+                }
+            }
             ctx.json(200, bookings.checkIn(code, u.sub()));
         });
         app.route("GET", "/api/admin/booking-stats", ctx -> {

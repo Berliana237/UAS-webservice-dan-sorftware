@@ -58,6 +58,11 @@ public final class TripCatalog {
         this.discovery = discovery;
     }
 
+    /** Memasukkan data perjalanan tanpa memanggil catalog-service (dipakai uji integrasi BookingService). */
+    public void put(Trip trip) {
+        cache.put(trip.id(), new Cached(trip, Long.MAX_VALUE / 4));
+    }
+
     public Trip get(String tripId) {
         Cached hit = cache.get(tripId);
         if (hit != null && System.currentTimeMillis() - hit.at() < CACHE_MS) return hit.trip();

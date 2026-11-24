@@ -45,8 +45,8 @@ const FAQ = [
     id: 'tiket', title: 'Tiket, pembatalan, dan refund',
     items: [
       ['Di mana saya melihat tiket?', 'Buka Perjalanan saya, lalu pilih pesanan. Tiket berisi kode QR per penumpang. Tunjukkan kode itu kepada petugas saat naik. Tiket juga bisa dicetak.', 'lihat tiket kode qr boarding'],
-      ['Berapa pengembalian dana bila saya membatalkan?', 'Tergantung sisa waktu sebelum berangkat: 72 jam atau lebih 90 persen, 24 sampai 72 jam 75 persen, 3 sampai 24 jam 50 persen, dan kurang dari 3 jam tidak ada pengembalian. Setelah kereta berangkat, pesanan tidak bisa dibatalkan. Besar pengembalian ditampilkan sebelum Anda mengonfirmasi.', 'batal pembatalan refund pengembalian dana persen'],
-      ['Bagaimana bila kereta dibatalkan atau terlambat?', 'Bila perjalanan dibatalkan operator, pesanan dibatalkan dan dana dikembalikan penuh. Bila terlambat, Anda menerima notifikasi berisi perkiraan keterlambatan.', 'kereta batal terlambat delay'],
+      ['Berapa pengembalian dana bila saya membatalkan?', 'Tergantung sisa waktu sebelum berangkat: 72 jam atau lebih 90 persen, 24 sampai 72 jam 75 persen, 3 sampai 24 jam 50 persen, dan kurang dari 3 jam tidak ada pengembalian. Setelah kereta berangkat, pesanan tidak bisa dibatalkan. Besar pengembalian ditampilkan sebelum Anda mengonfirmasi.', 'batal pembatalan membatalkan batalkan refund kembali pengembalian dana uang persen tiket pesanan'],
+      ['Bagaimana bila kereta dibatalkan atau terlambat?', 'Bila perjalanan dibatalkan operator, pesanan dibatalkan dan dana dikembalikan penuh. Bila terlambat, Anda menerima notifikasi berisi perkiraan keterlambatan.', 'kereta batal dibatalkan operator terlambat delay uang kembali penuh'],
     ],
   },
   {

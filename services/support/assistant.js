@@ -17,19 +17,54 @@ function faqWith(seniorPercent) {
   return FAQ.map((c) => ({ id: c.id, title: c.title, items: c.items.map(([q, a, k], i) => ({ id: `${c.id}-${i}`, q, a: a.replaceAll('{SENIOR}', String(seniorPercent)), keywords: k })) }));
 }
 
-/** Jawaban cadangan: FAQ dengan kata kunci paling banyak cocok. */
-function searchFaq(question, seniorPercent) {
-  const q = new Set(words(question).filter((w) => !STOP.has(w)));
-  let best = null;
-  for (const c of faqWith(seniorPercent)) {
-    for (const item of c.items) {
-      const pool = new Set([...words(item.q), ...words(item.keywords)]);
-      let score = 0;
-      for (const w of q) if (pool.has(w)) score += 1;
-      if (!best || score > best.score) best = { score, item };
+/**
+ * Bentuk dasar kata Indonesia agar "membatalkan", "pembatalan", "dibatalkan", dan "batal" dianggap sama.
+ * Imbuhan hanya dibuang bila hasilnya adalah kata dasar yang memang ada di kosakata FAQ, sehingga kata seperti
+ * "kereta" atau "berapa" tidak ikut terpotong. Peluluhan awalan ditangani (mem+pesan, peng+kembali, men+tahan).
+ */
+const SYNONYM = { refund: 'kembali', cancel: 'batal', beli: 'pesan', booking: 'pesan', password: 'sandi', bayar: 'bayar' };
+const SUFFIXES = ['kannya', 'annya', 'kan', 'an', 'nya', 'i', 'lah', 'kah', ''];
+const PREFIXES = [['meng', ['', 'k']], ['meny', ['s']], ['mem', ['', 'p']], ['men', ['', 't']], ['me', ['']], ['peng', ['', 'k']], ['peny', ['s']], ['pem', ['', 'p']], ['pen', ['', 't']], ['pe', ['']], ['ber', ['']], ['ter', ['']], ['di', ['']], ['ke', ['']], ['', ['']]];
+let VOCAB = null;
+const vocab = () => VOCAB || (VOCAB = new Set(FAQ.flatMap((c) => c.items.flatMap(([q, , k]) => words(`${q} ${k}`))).filter((w) => !STOP.has(w)).concat(['kembali', 'batal', 'pesan', 'bayar', 'tahan', 'kunci', 'tolak'])));
+function stem(w) {
+  if (SYNONYM[w]) return SYNONYM[w];
+  if (w.length <= 4) return w;
+  const v = vocab();
+  let best = w;
+  for (const suf of SUFFIXES) {
+    if (suf && !w.endsWith(suf)) continue;
+    const base = suf ? w.slice(0, -suf.length) : w;
+    for (const [pre, restore] of PREFIXES) {
+      if (!base.startsWith(pre)) continue;
+      for (const r of restore) {
+        const cand = r + base.slice(pre.length);
+        if (cand.length >= 4 && cand.length < best.length && v.has(cand)) best = cand;
+      }
     }
   }
-  return best && best.score >= 1 ? best.item : null;
+  return SYNONYM[best] || best;
+}
+const terms = (s) => words(s).filter((w) => !STOP.has(w)).map(stem);
+
+/**
+ * Jawaban cadangan: FAQ dengan kecocokan kata terbanyak, ditimbang kelangkaan kata (kata yang muncul di
+ * banyak FAQ seperti "tiket" bernilai kecil, kata khas seperti "batal" bernilai besar).
+ */
+function searchFaq(question, seniorPercent) {
+  const q = new Set(terms(question));
+  const items = faqWith(seniorPercent).flatMap((c) => c.items).map((item) => ({ item, head: new Set(terms(item.q)), pool: new Set([...terms(item.q), ...terms(item.keywords)]) }));
+  const df = new Map();
+  for (const { pool } of items) for (const w of pool) df.set(w, (df.get(w) || 0) + 1);
+  let best = null;
+  for (const { item, pool, head } of items) {
+    let score = 0;
+    let inHead = 0;
+    for (const w of q) if (pool.has(w)) { score += Math.log(1 + items.length / df.get(w)); if (head.has(w)) inHead += 1; }
+    // Skor sama: pilih FAQ yang pertanyaannya sendiri paling banyak memuat kata pengguna.
+    if (score > 0 && (!best || score > best.score + 1e-9 || (Math.abs(score - best.score) < 1e-9 && inHead > best.inHead))) best = { score, inHead, item };
+  }
+  return best ? best.item : null;
 }
 
 function systemPrompt({ seniorPercent, trains, stations }) {
@@ -58,4 +93,4 @@ ${stations.map((s) => `${s.name} (${s.code}, ${s.city})`).join('; ')}
 ${faqText}`;
 }
 
-module.exports = { redact, searchFaq, faqWith, systemPrompt };
+module.exports = { redact, searchFaq, stem, terms, faqWith, systemPrompt };

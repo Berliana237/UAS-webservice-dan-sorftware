@@ -13,9 +13,36 @@ if (!fs.existsSync(JAR)) { console.error(`[X] ${JAR} belum ada. Jalankan run.bat
 const runDir = path.join(ROOT, '.run');
 fs.mkdirSync(runDir, { recursive: true });
 console.log('\nMenyalakan semua proses: registry, broker, auth, catalog, booking, payment, notification, support, gateway...');
-const stack = startStack({ onExit: (name, code) => { if (!stopping) console.log(`[!] ${name} berhenti (kode ${code}). Lihat reports/logs/${name}.log`); } });
+/*
+ * Supervisor: service yang berhenti tanpa diminta (crash, termasuk kode 3221226505 / 0xC0000409 yang pernah
+ * teramati pada catalog dan gateway) dinyalakan ulang otomatis. Jeda naik bertahap 1, 2, 4, ... maks 30 detik,
+ * dan kembali ke 1 detik bila service sudah stabil lebih dari 60 detik. Setiap kejadian dicatat di
+ * reports/logs/supervisor.log agar tetap bisa dianalisis.
+ */
+const supLog = path.join(ROOT, 'reports', 'logs', 'supervisor.log');
+const note = (msg) => { const line = `${new Date().toISOString()} ${msg}`; console.log(`[!] ${msg}`); try { fs.appendFileSync(supLog, `${line}\n`); } catch { /* log opsional */ } };
+const restarts = new Map();
+const savePids = () => fs.writeFileSync(path.join(runDir, 'pids.json'), JSON.stringify({ launcher: process.pid, children: stack.children.map((c) => c.pid) }));
+const onExit = (name, code) => {
+  if (stopping) return;
+  const r = restarts.get(name) || { count: 0, delay: 1000, since: 0 };
+  if (Date.now() - r.since > 60000) r.delay = 1000;
+  r.count += 1;
+  note(`${name} berhenti (kode ${code}). Dinyalakan ulang otomatis dalam ${r.delay / 1000} detik (restart ke-${r.count}). Lihat reports/logs/${name}.log`);
+  const wait = r.delay;
+  r.delay = Math.min(r.delay * 2, 30000);
+  restarts.set(name, r);
+  setTimeout(() => {
+    if (stopping) return;
+    r.since = Date.now();
+    stack.start(name);
+    savePids();
+    note(`${name} sudah dinyalakan ulang.`);
+  }, wait).unref();
+};
 let stopping = false;
-fs.writeFileSync(path.join(runDir, 'pids.json'), JSON.stringify({ launcher: process.pid, children: stack.children.map((c) => c.pid) }));
+const stack = startStack({ onExit });
+savePids();
 
 const stop = () => { stopping = true; stack.stop(); setTimeout(() => process.exit(0), 400); };
 process.on('SIGINT', stop);

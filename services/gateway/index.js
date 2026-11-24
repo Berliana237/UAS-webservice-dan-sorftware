@@ -101,15 +101,13 @@ function clientIp(req) {
   return req.socket.remoteAddress || 'unknown';
 }
 
-const keyCache = new Map();
+/**
+ * API key selalu diverifikasi ke auth-service pada setiap request (tanpa cache), sehingga key yang dirotasi
+ * atau dicabut langsung ditolak. Biaya: satu panggilan mTLS internal yang ringan per request partner.
+ */
 async function verifyApiKey(key) {
-  const hash = crypto.createHash('sha256').update(key).digest('hex');
-  const hit = keyCache.get(hash);
-  if (hit && Date.now() - hit.at < 3000) return hit.value;
   const r = await internal.request(`${config.urls.auth}/internal/api-keys/verify`, { method: 'POST', body: { key } });
-  const value = r.json || { valid: false };
-  keyCache.set(hash, { at: Date.now(), value });
-  return value;
+  return r.json || { valid: false };
 }
 
 function readBody(req, max = MAX_BODY) {

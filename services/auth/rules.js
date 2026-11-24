@@ -20,14 +20,34 @@ function validatePassword(p) {
   return null;
 }
 
+/**
+ * Email: bagian lokal tanpa spasi, tidak diawali/diakhiri titik dan tanpa titik ganda;
+ * domain terdiri dari label tidak kosong (huruf, angka, tanda hubung di tengah) dan diakhiri TLD huruf minimal 2.
+ * Contoh ditolak: a@..example, a@b..com, .a@b.com, a..b@c.com.
+ */
+const EMAIL_LOCAL = /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+$/;
+const EMAIL_DOMAIN = /^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,24}$/;
 function validateEmail(e) {
-  if (typeof e !== 'string' || e.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)) return 'Format email tidak valid.';
+  const bad = 'Format email tidak valid.';
+  if (typeof e !== 'string' || e.length > 120) return bad;
+  const at = e.lastIndexOf('@');
+  if (at < 1 || at !== e.indexOf('@')) return bad;
+  const local = e.slice(0, at);
+  const domain = e.slice(at + 1);
+  if (local.length > 64 || !EMAIL_LOCAL.test(local) || local.startsWith('.') || local.endsWith('.') || local.includes('..')) return bad;
+  if (!EMAIL_DOMAIN.test(domain)) return bad;
   return null;
 }
 
 /** NIK cukup 16 digit angka. Sistem tidak mencocokkan dengan data kependudukan. */
 const validateNik = (v) => (v === '' || v == null || /^\d{16}$/.test(String(v)) ? null : 'NIK harus 16 digit angka.');
-const validatePhone = (v) => (v === '' || v == null || /^\+?[0-9][0-9\s-]{7,18}$/.test(String(v)) ? null : 'Contoh: 081234567890');
+/** Nomor HP: hanya angka, spasi, atau tanda hubung (boleh diawali +), dengan 9 sampai 15 digit angka. */
+function validatePhone(v) {
+  if (v === '' || v == null) return null;
+  const s = String(v);
+  const digits = s.replace(/\D/g, '');
+  return /^\+?[0-9][0-9\s-]*[0-9]$/.test(s) && digits.length >= 9 && digits.length <= 15 ? null : 'Contoh: 081234567890';
+}
 
 /** Tanggal lahir yyyy-mm-dd, tidak di masa depan, usia paling tua 120 tahun. */
 function validateBirthDate(v, now = new Date()) {
