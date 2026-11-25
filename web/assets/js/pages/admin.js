@@ -124,14 +124,14 @@ async function dataOps(box) {
     $('#f-id', s.el).addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); });
     $('#tf', s.el).addEventListener('submit', async (e) => {
       e.preventDefault();
-      clearFieldErrors(e.currentTarget);
+      clearFieldErrors(e.target);
       try {
         const r = await api('/api/admin/trains', { method: 'POST', body: { id: $('#f-id', s.el).value, number: $('#f-number', s.el).value.trim(), name: $('#f-name', s.el).value.trim(), classes: $$('[name=cls]:checked', s.el).map((c) => c.value) } });
         s.close();
         toast(r.notice, 'ok');
         await trains();
         editTrain(r.train.id);
-      } catch (ex) { if (!showFieldErrors(e.currentTarget, ex)) toast(ex.message, 'err'); }
+      } catch (ex) { if (!showFieldErrors(e.target, ex)) toast(ex.message, 'err'); }
     });
   }
 
@@ -163,7 +163,7 @@ async function dataOps(box) {
         preview();
         $('#pc', tp).addEventListener('submit', async (e) => {
           e.preventDefault();
-          clearFieldErrors(e.currentTarget);
+          clearFieldErrors(e.target);
           const v = vals();
           const total = Object.values(v).reduce((a, b) => a + b, 0);
           if (total < 1 || total > 12) { $('#c-msg', tp).textContent = 'Total gerbong harus 1 sampai 12.'; return; }
@@ -173,7 +173,7 @@ async function dataOps(box) {
             await reload();
             toast(r.notice, 'ok');
             panels.coaches();
-          } catch (ex) { if (!showFieldErrors(e.currentTarget, ex)) toast(errMsg(ex), 'err'); }
+          } catch (ex) { if (!showFieldErrors(e.target, ex)) toast(errMsg(ex), 'err'); }
         });
       },
       info() {
@@ -185,14 +185,14 @@ async function dataOps(box) {
           <div class="row between"><button class="btn ghost sm danger-text" type="button" id="del">${icon.trash} Hapus kereta</button><button class="btn gold" type="submit">Simpan</button></div></form>`;
         $('#pi', tp).addEventListener('submit', async (e) => {
           e.preventDefault();
-          clearFieldErrors(e.currentTarget);
+          clearFieldErrors(e.target);
           const m = masinis.find((x) => x.id === $('#f-mas', tp).value);
           try {
             await api(`/api/admin/trains/${id}`, { method: 'PATCH', body: { name: $('#f-name', tp).value.trim(), number: $('#f-number', tp).value.trim(), enabled: $('#f-en', tp).checked, masinisId: m?.id || null, masinisName: m?.name || null } });
             await reload();
             toast('Data kereta tersimpan.', 'ok');
             trains();
-          } catch (ex) { if (!showFieldErrors(e.currentTarget, ex)) toast(errMsg(ex), 'err'); }
+          } catch (ex) { if (!showFieldErrors(e.target, ex)) toast(errMsg(ex), 'err'); }
         });
         $('#del', tp).addEventListener('click', async () => {
           if (!await confirmDialog({ title: `Hapus ${t.name}?`, body: '<p>Kereta yang sudah punya riwayat perjalanan tidak bisa dihapus. Untuk menghentikan sementara, matikan saja "Tampilkan untuk pelanggan".</p>', confirm: 'Hapus', danger: true })) return;
@@ -293,7 +293,7 @@ async function dataOps(box) {
       $('#f-code', s.el).addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); });
       $('#sf', s.el).addEventListener('submit', async (e) => {
         e.preventDefault();
-        clearFieldErrors(e.currentTarget);
+        clearFieldErrors(e.target);
         const body = { name: $('#f-name', s.el).value.trim(), city: $('#f-city', s.el).value.trim() };
         try {
           if (x) await api(`/api/admin/stations/${x.code}`, { method: 'PATCH', body });
@@ -301,7 +301,7 @@ async function dataOps(box) {
           s.close();
           toast('Stasiun tersimpan.', 'ok');
           stationsTab();
-        } catch (ex) { if (!showFieldErrors(e.currentTarget, ex)) toast(errMsg(ex), 'err'); }
+        } catch (ex) { if (!showFieldErrors(e.target, ex)) toast(errMsg(ex), 'err'); }
       });
     };
     $('#add-st', ops).addEventListener('click', () => form(null));
@@ -336,7 +336,7 @@ async function dataOps(box) {
     $('#f-sd', ops).addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, ''); if (e.target.value !== '') sync(e.target.value); });
     $('#setf', ops).addEventListener('submit', async (e) => {
       e.preventDefault();
-      try { const r = await api('/api/admin/settings', { method: 'PUT', body: { seniorDiscountPercent: Number($('#f-sd', ops).value) } }); toast(`Diskon lansia sekarang ${r.seniorDiscountPercent}%.`, 'ok'); Kiko.react('bangga', 'Diskon lansia diperbarui!', 2000); } catch (ex) { if (!showFieldErrors(e.currentTarget, ex)) toast(errMsg(ex), 'err'); }
+      try { const r = await api('/api/admin/settings', { method: 'PUT', body: { seniorDiscountPercent: Number($('#f-sd', ops).value) } }); toast(`Diskon lansia sekarang ${r.seniorDiscountPercent}%.`, 'ok'); Kiko.react('bangga', 'Diskon lansia diperbarui!', 2000); } catch (ex) { if (!showFieldErrors(e.target, ex)) toast(errMsg(ex), 'err'); }
     });
   }
 
@@ -384,7 +384,7 @@ async function users(box) {
     $('#f-nik', s.el).addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, ''); });
     $('#uf', s.el).addEventListener('submit', async (e) => {
       e.preventDefault();
-      clearFieldErrors(e.currentTarget);
+      clearFieldErrors(e.target);
       const v = (k) => $(`#f-${k}`, s.el)?.value.trim();
       const body = { name: v('name'), email: v('email'), phone: v('phone') || null, nik: v('nik') || null, birthDate: v('birthDate') || null, role: $('#f-role', s.el).value };
       try {
@@ -393,7 +393,7 @@ async function users(box) {
         s.close();
         toast(u ? 'Pengguna diperbarui.' : 'Akun dibuat.', 'ok');
         load();
-      } catch (ex) { if (!showFieldErrors(e.currentTarget, ex)) toast(errMsg(ex), 'err'); }
+      } catch (ex) { if (!showFieldErrors(e.target, ex)) toast(errMsg(ex), 'err'); }
     });
   }
   function resetPw(u) {
@@ -402,8 +402,8 @@ async function users(box) {
       <div class="row end"><button class="btn gold" type="submit">Ganti kata sandi</button></div></form>`);
     $('#pf', s.el).addEventListener('submit', async (e) => {
       e.preventDefault();
-      clearFieldErrors(e.currentTarget);
-      try { await api(`/api/admin/users/${u.id}/password`, { method: 'POST', body: { password: $('#f-password', s.el).value } }); s.close(); toast('Kata sandi diganti.', 'ok'); } catch (ex) { if (!showFieldErrors(e.currentTarget, ex)) toast(errMsg(ex), 'err'); }
+      clearFieldErrors(e.target);
+      try { await api(`/api/admin/users/${u.id}/password`, { method: 'POST', body: { password: $('#f-password', s.el).value } }); s.close(); toast('Kata sandi diganti.', 'ok'); } catch (ex) { if (!showFieldErrors(e.target, ex)) toast(errMsg(ex), 'err'); }
     });
   }
   async function del(u) {
@@ -531,7 +531,7 @@ async function transfers(box) {
         $('#rf', s.el).addEventListener('submit', (e) => {
           e.preventDefault();
           const v = $('#f-reason', s.el).value.trim();
-          if (v.length < 5) { showFieldErrors(e.currentTarget, { details: { fields: { reason: 'Minimal 5 karakter.' } } }); return; }
+          if (v.length < 5) { showFieldErrors(e.target, { details: { fields: { reason: 'Minimal 5 karakter.' } } }); return; }
           s.close();
           resolve(v);
         });
