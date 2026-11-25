@@ -31,6 +31,7 @@ servers:
   - url: https://localhost:8443
     description: Lokal lewat TLS (sertifikat dev)
 tags:
+  - { name: Bukti Microservices, description: 'Menunjukkan 9 service berjalan sebagai proses terpisah (PID, port, runtime berbeda) dan saling terhubung lewat mTLS. Login admin dulu lewat Authorize.' }
   - { name: OAuth2, description: Authorization Server }
   - { name: Jadwal, description: Stasiun dan perjalanan }
   - { name: Kursi, description: Seat locking per segmen }
@@ -415,7 +416,7 @@ paths:
         '422': { description: 'INVALID_NIK, NIK_REQUIRED, INVALID_AGE, PASSENGER_SEAT_MISMATCH, DUPLICATE_PASSENGER', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/bookings/instance:
     get:
-      tags: [Pesanan]
+      tags: [Bukti Microservices, Pesanan]
       summary: Nama instance yang melayani (demo load balancing)
       responses:
         '200': { description: Nama instance }
@@ -829,9 +830,19 @@ paths:
         '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '200': { description: Daftar pesan }
+  /api/admin/services/health:
+    get:
+      tags: [Bukti Microservices, Admin]
+      summary: Cek langsung setiap service (PID, port, runtime) lewat mTLS
+      description: 'Gateway memanggil GET /health di setiap instance yang terdaftar di registry melalui mTLS, lalu menampilkan PID proses, port, runtime (Node.js atau Java), memori, uptime, dan waktu respons. PID dan port yang berbeda membuktikan setiap service adalah proses terpisah, bukan satu aplikasi monolith. summary.monolith bernilai false bila ada lebih dari satu PID.'
+      security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
+      responses:
+        '401': { description: Token tidak ada, kedaluwarsa, atau tidak valid, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Scope atau peran tidak mencukupi, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '200': { description: 'summary (jumlah service, proses, PID berbeda, monolith) dan processes[] (service, instanceId, port, protocol, status, pid, runtime, uptimeSec, memoryMB, latencyMs)' }
   /api/admin/registry:
     get:
-      tags: [Admin]
+      tags: [Bukti Microservices, Admin]
       summary: Service dan instance yang terdaftar
       security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       responses:
@@ -840,7 +851,7 @@ paths:
         '200': { description: Daftar service }
   /api/admin/queues:
     get:
-      tags: [Admin]
+      tags: [Bukti Microservices, Admin]
       summary: Statistik antrian pesan
       security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       responses:
@@ -849,7 +860,7 @@ paths:
         '200': { description: Statistik }
   /api/admin/queues/{queue}/dlq:
     get:
-      tags: [Admin]
+      tags: [Bukti Microservices, Admin]
       summary: Isi dead letter queue
       security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       parameters: [{ name: queue, in: path, required: true, schema: { type: string } }]
@@ -860,7 +871,7 @@ paths:
         '200': { description: Isi DLQ }
   /api/admin/queues/{queue}/dlq/replay:
     post:
-      tags: [Admin]
+      tags: [Bukti Microservices, Admin]
       summary: Mengirim ulang isi DLQ
       security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       parameters: [{ name: queue, in: path, required: true, schema: { type: string } }]
@@ -871,7 +882,7 @@ paths:
         '200': { description: Jumlah pesan dikirim ulang }
   /api/admin/queues/publish-test:
     post:
-      tags: [Admin]
+      tags: [Bukti Microservices, Admin]
       summary: Menerbitkan pesan uji, bisa pesan beracun untuk demo DLQ
       security: [{ bearer: ['system:read'] }, { bearerToken: [] }]
       requestBody:

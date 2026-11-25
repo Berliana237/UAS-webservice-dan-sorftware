@@ -197,12 +197,55 @@ async function systemStatus() {
   }));
 }
 
+/** Memeriksa langsung setiap instance (bukan hanya data registry) dan merangkum jumlah proses yang berbeda. */
+async function servicesHealth() {
+  const list = await systemStatus();
+  const checks = list.flatMap((s) => s.instances.map(async (i) => {
+    const t0 = Date.now();
+    const port = Number(new URL(i.url).port) || null;
+    try {
+      const r = await internal.request(`${i.url}/health`, { timeout: 4000 });
+      const h = r.json || {};
+      return { service: s.name, instanceId: i.instanceId, port, protocol: 'HTTPS + mTLS', status: r.status === 200 ? 'UP' : 'DOWN',
+        pid: h.pid ?? null, runtime: h.runtime ?? null, uptimeSec: h.uptime ?? null, memoryMB: h.memoryMB ?? null, latencyMs: Date.now() - t0 };
+    } catch (e) {
+      return { service: s.name, instanceId: i.instanceId, port, protocol: 'HTTPS + mTLS', status: 'DOWN', error: e.code || e.message, latencyMs: Date.now() - t0 };
+    }
+  }));
+  const own = { service: 'gateway', instanceId: 'gateway', port: config.ports.gateway, protocol: 'pintu masuk publik (HTTPS)', status: 'UP',
+    pid: process.pid, runtime: `Node.js ${process.version}`, uptimeSec: Math.round(process.uptime()),
+    memoryMB: Math.round(process.memoryUsage().rss / 1048576), latencyMs: 0 };
+  const processes = [own, ...(await Promise.all(checks))];
+  const up = processes.filter((p) => p.status === 'UP');
+  const pids = new Set(up.map((p) => p.pid).filter((p) => p != null));
+  return {
+    summary: {
+      services: new Set(processes.map((p) => p.service)).size,
+      processes: processes.length,
+      up: up.length,
+      distinctPids: pids.size,
+      distinctPorts: new Set(processes.map((p) => p.port).filter(Boolean)).size,
+      runtimes: [...new Set(up.map((p) => p.runtime).filter(Boolean))],
+      monolith: pids.size <= 1,
+      note: 'Setiap baris dicek langsung saat ini lewat mTLS. PID dan port berbeda berarti proses terpisah; booking berjalan dua instance (booking-a, booking-b) dengan Java, service lain Node.js.',
+    },
+    processes,
+  };
+}
+
 async function gatewayRoutes(req, res, pathname, user) {
   if (req.method === 'GET' && pathname === '/healthz') { sendJson(res, 200, { status: 'UP', service: 'gateway', uptime: Math.round(process.uptime()) }); return true; }
   if (pathname === '/api/admin/registry' && req.method === 'GET') {
     if (!user) { sendError(req, res, 401, 'UNAUTHENTICATED', 'Token akses diperlukan.'); return true; }
     if (!hasScopes(user, ['system:read'])) { sendError(req, res, 403, 'INSUFFICIENT_SCOPE', 'Hak akses tidak mencukupi.', { required: ['system:read'] }); return true; }
     sendJson(res, 200, { gateway: { instanceId: 'gateway', status: 'UP' }, services: await systemStatus() });
+    return true;
+  }
+  // Bukti microservices: gateway memanggil /health setiap instance lewat mTLS dan menampilkan PID, port, runtime.
+  if (pathname === '/api/admin/services/health' && req.method === 'GET') {
+    if (!user) { sendError(req, res, 401, 'UNAUTHENTICATED', 'Token akses diperlukan.'); return true; }
+    if (!hasScopes(user, ['system:read'])) { sendError(req, res, 403, 'INSUFFICIENT_SCOPE', 'Hak akses tidak mencukupi.', { required: ['system:read'] }); return true; }
+    sendJson(res, 200, await servicesHealth());
     return true;
   }
   // Reset data uji kelompok penguji (lihat scripts/reset-test-data.js). Hanya aktif di lingkungan uji (TEST_RESET_ENABLED=1)

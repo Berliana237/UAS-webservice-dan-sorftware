@@ -23,7 +23,11 @@ function createApp(name, log, { jsonLimit = '64kb', rawJson = false } = {}) {
     app.use(express.json({ limit: jsonLimit }));
     app.use(express.urlencoded({ extended: false, limit: jsonLimit }));
   }
-  app.get('/health', (_req, res) => res.json({ status: 'UP', service: name, instance: process.env.INSTANCE_ID || name, uptime: Math.round(process.uptime()) }));
+  // pid, runtime, dan memori ikut dikirim agar GET /api/admin/services/health bisa menunjukkan tiap service adalah proses terpisah.
+  app.get('/health', (_req, res) => res.json({
+    status: 'UP', service: name, instance: process.env.INSTANCE_ID || name, uptime: Math.round(process.uptime()),
+    pid: process.pid, runtime: `Node.js ${process.version}`, memoryMB: Math.round(process.memoryUsage().rss / 1048576),
+  }));
   return app;
 }
 

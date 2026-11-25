@@ -42,7 +42,14 @@ public final class Api {
     }
 
     public void register(HttpApp app) {
-        app.route("GET", "/health", ctx -> ctx.json(200, Map.of("status", "UP", "service", "booking", "instance", instanceId)));
+        app.route("GET", "/health", ctx -> {
+            Runtime rt = Runtime.getRuntime();
+            ctx.json(200, Map.of("status", "UP", "service", "booking", "instance", instanceId,
+                "pid", ProcessHandle.current().pid(),
+                "runtime", "Java " + Runtime.version().feature(),
+                "uptime", java.lang.management.ManagementFactory.getRuntimeMXBean().getUptime() / 1000,
+                "memoryMB", (rt.totalMemory() - rt.freeMemory()) / 1048576));
+        });
         app.route("GET", "/api/bookings/instance", ctx -> ctx.json(200, Map.of("service", "booking", "instance", instanceId)));
 
         app.route("GET", "/api/trips/{id}/availability", this::availability);
