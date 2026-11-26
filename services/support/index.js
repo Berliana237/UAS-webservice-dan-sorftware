@@ -63,7 +63,7 @@ async function askGemini(model, system, messages, timeoutMs = TIMEOUT_MS) {
 
 app.get('/api/support/faq', async (_req, res) => {
   const ctx = await liveContext();
-  res.json({ categories: faqWith(ctx.seniorPercent).map((c) => ({ id: c.id, title: c.title, items: c.items.map(({ id, q, a }) => ({ id, q, a })) })) });
+  res.json({ categories: faqWith(ctx.seniorPercent).map((c) => ({ id: c.id, title: c.title, items: c.items.map(({ id, q, a, keywords }) => ({ id, q, a, keywords })) })) });
 });
 
 app.post('/api/support/chat', async (req, res) => {

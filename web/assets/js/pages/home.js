@@ -120,11 +120,14 @@ export function render(main) {
     const rows = trains.map((t) => {
       const route = dir === 'A' ? t.route : [...t.route].reverse();
       const times = t.services.filter((s) => s.active && s.direction === dir).map((s) => s.departureTime);
+      // Kereta melingkar (mis. Joglosemarkerto Solo-...-Solo): tujuan tombol Pesan = stasiun tengah, bukan asal yang sama.
+      const end = route[route.length - 1];
+      const dest = end.station.code === route[0].station.code ? route[Math.floor(route.length / 2)] : end;
       return `<tr><td><b>${esc(t.name)}</b><span class="sub mono">${esc(t.number)}</span></td>
         <td>${esc(route[0].station.name)} <span class="muted">ke</span> ${esc(route[route.length - 1].station.name)}<span class="sub">${route.length - 2} pemberhentian</span></td>
         <td class="mono">${times.join(' · ') || '-'}</td>
         <td>${t.classes.map((c) => `<span class="chip">${CLASS[c]}</span>`).join(' ')}</td>
-        <td class="acts"><a class="btn ghost sm" data-link href="/cari?train=${t.id}&from=${route[0].station.code}&to=${route[route.length - 1].station.code}">Pesan</a></td></tr>`;
+        <td class="acts"><a class="btn ghost sm" data-link href="/cari?train=${t.id}&from=${route[0].station.code}&to=${dest.station.code}">Pesan</a></td></tr>`;
     }).join('');
     $('#sched tbody').innerHTML = rows || '<tr><td colspan="5" class="muted">Belum ada kereta yang beroperasi.</td></tr>';
   };

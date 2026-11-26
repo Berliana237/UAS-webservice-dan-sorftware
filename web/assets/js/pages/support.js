@@ -67,7 +67,7 @@ export function render(main) {
     const hl = (t) => (words.length ? esc(t).replace(new RegExp(`(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi'), '<mark>$1</mark>') : esc(t));
     let n = 0;
     const html = cats.filter((c) => active === 'all' || c.id === active).map((c) => {
-      const items = c.items.filter((i) => !words.length || words.every((w) => `${i.q} ${i.a}`.toLowerCase().includes(w)));
+      const items = c.items.filter((i) => !words.length || words.every((w) => `${i.q} ${i.a} ${i.keywords || ''}`.toLowerCase().includes(w)));
       n += items.length;
       if (!items.length) return '';
       return `<div class="faq-cat"><h3>${esc(c.title)}</h3><div class="acc">${items.map((i) => `<div class="acc-item"><button class="acc-q" type="button" aria-expanded="${words.length ? 'true' : 'false'}" aria-controls="a-${i.id}" id="q-${i.id}">${hl(i.q)}<i aria-hidden="true"></i></button>

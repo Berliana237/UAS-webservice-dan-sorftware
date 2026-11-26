@@ -942,7 +942,7 @@ paths:
       tags: [Bantuan]
       summary: Daftar FAQ per kategori
       responses:
-        '200': { description: '{ categories: [{ id, title, items: [{ id, q, a }] }] }' }
+        '200': { description: '{ categories: [{ id, title, items: [{ id, q, a, keywords }] }] } (keywords dipakai kotak pencarian FAQ, mis. "refund")' }
   /api/support/chat:
     post:
       tags: [Bantuan]
